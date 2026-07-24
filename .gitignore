@@ -4,8 +4,10 @@ build/
 .env
 videos/audio/*
 videos/generated/*
+videos/avatars/*
 !videos/audio/.gitkeep
 !videos/generated/.gitkeep
+!videos/avatars/.gitkeep
 videos/db.sqlite
 videos/db.sqlite-shm
 videos/db.sqlite-wal

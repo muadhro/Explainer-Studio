@@ -1,5 +1,56 @@
 export type AnimationStyle = 'Animated Explainer' | 'Kinetic Typography' | 'Motion Graphics' | 'Flat Design 2D';
 
+export interface User {
+  id: string;
+  email: string;
+  fullName: string;
+  title: string | null;
+  avatarPath: string | null;
+  plan: string;
+  billingCycle: string;
+  planUpdatedAt: string | null;
+  theme: 'light' | 'dark' | 'system';
+  locale: string;
+  timezone: string | null;
+  notifyProduct: number;
+  notifyMarketing: number;
+  notifyBilling: number;
+  createdAt: string;
+}
+
+export interface Session {
+  id: string;
+  userId: string;
+  userAgent: string;
+  createdAt: string;
+  lastSeenAt: string;
+  current: boolean;
+}
+
+export interface Plan {
+  id: string;
+  name: string;
+  basePrice: number;
+  videosPerMonth: number;
+  maxQuality: string;
+  popular?: boolean;
+  features: string[];
+}
+
+export interface BillingCycleOption {
+  months: number;
+  label: string;
+  discountPct: number;
+}
+
+export interface BillingInfo {
+  plan: Plan & { cycle: number; price: { monthly: number; total: number } };
+  usage: { videosUsed: number; videosLimit: number };
+  invoices: unknown[];
+  plans: Plan[];
+  billingCycles: BillingCycleOption[];
+}
+
 export interface Voice {
   id: string;
   name: string;

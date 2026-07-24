@@ -4,11 +4,28 @@ const { v4: uuidv4 } = require('uuid');
 const db = require('../database/db');
 const fileService = require('../services/fileService');
 const videoQueue = require('../queue/videoQueue');
+const auth = require('../services/authService');
+const { getPlan } = require('../config/plans');
 
 const router = express.Router();
 
 const VALID_STYLES = ['Animated Explainer', 'Kinetic Typography', 'Motion Graphics', 'Flat Design 2D'];
 const VALID_QUALITIES = ['720p', '1080p'];
+
+router.use(auth.attachUser, auth.requireAuth);
+
+function loadOwnedVideo(req, res) {
+  const video = db.getVideoById(req.params.id);
+  if (!video) {
+    res.status(404).json({ message: 'Video not found' });
+    return null;
+  }
+  if (video.userId !== req.user.id) {
+    res.status(403).json({ message: 'You do not have access to this video' });
+    return null;
+  }
+  return video;
+}
 
 // POST /api/videos
 router.post('/', (req, res) => {
@@ -26,6 +43,17 @@ router.post('/', (req, res) => {
     return res.status(400).json({ message: `quality must be one of: ${VALID_QUALITIES.join(', ')}` });
   }
 
+  const plan = getPlan(req.user.plan);
+  const used = db.countVideosThisMonthForUser(req.user.id);
+  if (used >= plan.videosPerMonth) {
+    return res.status(402).json({
+      message: `You've used all ${plan.videosPerMonth} videos on the ${plan.name} plan this month. Upgrade for more.`,
+    });
+  }
+  if (quality === '1080p' && plan.maxQuality === '720p') {
+    return res.status(402).json({ message: '1080p rendering requires the Starter plan or higher.' });
+  }
+
   const video = db.createVideo({
     id: uuidv4(),
     title,
@@ -33,6 +61,7 @@ router.post('/', (req, res) => {
     animationStyle,
     quality,
     voiceId: voiceId || null,
+    userId: req.user.id,
     status: 'queued',
     progress: 0,
     createdAt: new Date().toISOString(),
@@ -45,14 +74,14 @@ router.post('/', (req, res) => {
 
 // GET /api/videos
 router.get('/', (req, res) => {
-  const videos = db.getAllVideos();
+  const videos = db.getVideosForUser(req.user.id);
   res.json({ videos, totalStorageMB: fileService.getTotalStorageUsedMB() });
 });
 
 // GET /api/videos/:id/status
 router.get('/:id/status', (req, res) => {
-  const video = db.getVideoById(req.params.id);
-  if (!video) return res.status(404).json({ message: 'Video not found' });
+  const video = loadOwnedVideo(req, res);
+  if (!video) return;
 
   res.json({
     id: video.id,
@@ -66,8 +95,8 @@ router.get('/:id/status', (req, res) => {
 
 // GET /api/videos/:id/download
 router.get('/:id/download', (req, res) => {
-  const video = db.getVideoById(req.params.id);
-  if (!video) return res.status(404).json({ message: 'Video not found' });
+  const video = loadOwnedVideo(req, res);
+  if (!video) return;
   if (!video.videoPath || !fs.existsSync(video.videoPath)) {
     return res.status(404).json({ message: 'Video file not available yet' });
   }
@@ -78,8 +107,8 @@ router.get('/:id/download', (req, res) => {
 
 // GET /api/videos/:id/play
 router.get('/:id/play', (req, res) => {
-  const video = db.getVideoById(req.params.id);
-  if (!video) return res.status(404).json({ message: 'Video not found' });
+  const video = loadOwnedVideo(req, res);
+  if (!video) return;
   if (!video.videoPath || !fs.existsSync(video.videoPath)) {
     return res.status(404).json({ message: 'Video file not available yet' });
   }
@@ -112,8 +141,8 @@ router.get('/:id/play', (req, res) => {
 
 // DELETE /api/videos/:id
 router.delete('/:id', (req, res) => {
-  const video = db.getVideoById(req.params.id);
-  if (!video) return res.status(404).json({ message: 'Video not found' });
+  const video = loadOwnedVideo(req, res);
+  if (!video) return;
 
   fileService.deleteIfExists(video.videoPath);
   fileService.deleteIfExists(video.audioPath);

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { createVideo, listVoices } from '../api';
 import AppleSelect from '../components/AppleSelect';
+import { useAuth } from '../AuthContext';
 import type { AnimationStyle, VideoQuality, Voice } from '../types';
 
 const ANIMATION_STYLES: AnimationStyle[] = [
@@ -13,7 +14,9 @@ const ANIMATION_STYLES: AnimationStyle[] = [
 const QUALITIES: VideoQuality[] = ['720p', '1080p'];
 
 export default function Upload() {
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const quality1080Locked = user?.plan === 'free';
   const [title, setTitle] = useState('');
   const [courseContent, setCourseContent] = useState('');
   const [animationStyle, setAnimationStyle] = useState<AnimationStyle>(ANIMATION_STYLES[0]);
@@ -167,18 +170,28 @@ export default function Upload() {
 
         <fieldset disabled={submitting}>
           <legend>Video Quality</legend>
-          {QUALITIES.map((q) => (
-            <label key={q} className="radio-label">
-              <input
-                type="radio"
-                name="quality"
-                value={q}
-                checked={quality === q}
-                onChange={() => setQuality(q)}
-              />
-              {q}
-            </label>
-          ))}
+          {QUALITIES.map((q) => {
+            const locked = q === '1080p' && quality1080Locked;
+            return (
+              <label key={q} className={`radio-label${locked ? ' radio-label--locked' : ''}`}>
+                <input
+                  type="radio"
+                  name="quality"
+                  value={q}
+                  checked={quality === q}
+                  disabled={locked}
+                  onChange={() => setQuality(q)}
+                />
+                {q}
+                {locked && (
+                  <span className="field-hint">
+                    {' '}
+                    — <Link to="/pricing">upgrade to unlock</Link>
+                  </span>
+                )}
+              </label>
+            );
+          })}
         </fieldset>
 
         {error && <div className="error-text">{error}</div>}

@@ -1,16 +1,24 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
-require('./database/db'); // ensures storage folders + sqlite schema exist
+const cookieParser = require('cookie-parser');
+const db = require('./database/db'); // ensures storage folders + sqlite schema exist
 const videosRouter = require('./routes/videos');
+const authRouter = require('./routes/auth');
+const accountRouter = require('./routes/account');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
+app.use(cookieParser());
+app.use('/avatars', express.static(path.join(db.STORAGE_PATH, 'avatars')));
 
+app.use('/api/auth', authRouter);
+app.use('/api/account', accountRouter);
 app.use('/api/videos', videosRouter);
 
 app.get('/api/voices', async (req, res) => {
