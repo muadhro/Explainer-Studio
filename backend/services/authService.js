@@ -13,7 +13,7 @@ async function verifyPassword(password, hash) {
   return bcrypt.compare(password, hash);
 }
 
-function createSessionForUser(userId, userAgent) {
+async function createSessionForUser(userId, userAgent) {
   const session = {
     id: crypto.randomUUID(),
     userId,
@@ -21,7 +21,7 @@ function createSessionForUser(userId, userAgent) {
     createdAt: new Date().toISOString(),
     lastSeenAt: new Date().toISOString(),
   };
-  db.createSession(session);
+  await db.createSession(session);
   return session;
 }
 
@@ -38,20 +38,24 @@ function clearSessionCookie(res) {
 }
 
 /** Express middleware: resolves req.user from the session cookie, if any. Does not block. */
-function attachUser(req, res, next) {
-  const sessionId = req.cookies?.[SESSION_COOKIE];
-  if (!sessionId) return next();
+async function attachUser(req, res, next) {
+  try {
+    const sessionId = req.cookies?.[SESSION_COOKIE];
+    if (!sessionId) return next();
 
-  const session = db.getSessionById(sessionId);
-  if (!session) return next();
+    const session = await db.getSessionById(sessionId);
+    if (!session) return next();
 
-  const user = db.getUserById(session.userId);
-  if (!user) return next();
+    const user = await db.getUserById(session.userId);
+    if (!user) return next();
 
-  db.touchSession(sessionId);
-  req.user = user;
-  req.sessionId = sessionId;
-  next();
+    await db.touchSession(sessionId);
+    req.user = user;
+    req.sessionId = sessionId;
+    next();
+  } catch (err) {
+    next(err);
+  }
 }
 
 /** Express middleware: 401s if no authenticated user. Use after attachUser. */

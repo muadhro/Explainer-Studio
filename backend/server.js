@@ -4,7 +4,7 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const db = require('./database/db'); // ensures storage folders + sqlite schema exist
+const db = require('./database/db'); // ensures storage folders + Postgres schema exist
 const videosRouter = require('./routes/videos');
 const authRouter = require('./routes/auth');
 const accountRouter = require('./routes/account');
@@ -39,8 +39,17 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: err.message || 'Internal server error' });
 });
 
-app.listen(PORT, () => {
-  console.log(`AI Explainer backend listening on port ${PORT}`);
-  // pick up any jobs that were interrupted by a restart
-  require('./queue/videoQueue').recoverPendingJobs();
-});
+db.ready
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`AI Explainer backend listening on port ${PORT}`);
+      // pick up any jobs that were interrupted by a restart
+      require('./queue/videoQueue').recoverPendingJobs().catch((err) => {
+        console.error('[queue] failed to recover pending jobs:', err);
+      });
+    });
+  })
+  .catch((err) => {
+    console.error('Failed to connect to Supabase Postgres:', err.message);
+    process.exit(1);
+  });

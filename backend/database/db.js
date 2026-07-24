@@ -1,6 +1,6 @@
 const path = require('path');
 const fs = require('fs');
-const { DatabaseSync } = require('node:sqlite');
+const { Pool } = require('pg');
 
 // Resolve relative to the project root (backend/database/../..) so storage
 // location is stable no matter what directory the server is started from.
@@ -9,194 +9,219 @@ const rawStoragePath = process.env.VIDEO_STORAGE_PATH || './videos';
 const STORAGE_PATH = path.isAbsolute(rawStoragePath)
   ? rawStoragePath
   : path.join(PROJECT_ROOT, rawStoragePath);
-const DB_PATH = path.join(STORAGE_PATH, 'db.sqlite');
 
 fs.mkdirSync(STORAGE_PATH, { recursive: true });
 fs.mkdirSync(path.join(STORAGE_PATH, 'audio'), { recursive: true });
 fs.mkdirSync(path.join(STORAGE_PATH, 'generated'), { recursive: true });
+fs.mkdirSync(path.join(STORAGE_PATH, 'avatars'), { recursive: true });
 
-const db = new DatabaseSync(DB_PATH);
-db.exec('PRAGMA journal_mode = WAL');
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS videos (
-    id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    courseContent TEXT NOT NULL,
-    animationStyle TEXT NOT NULL,
-    quality TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'queued',
-    progress INTEGER NOT NULL DEFAULT 0,
-    falJobId TEXT,
-    audioPath TEXT,
-    videoPath TEXT,
-    fileSize REAL,
-    createdAt TEXT NOT NULL,
-    completedAt TEXT,
-    errorMessage TEXT
-  )
-`);
-
-// migration for databases created before voice selection existed
-try {
-  db.exec('ALTER TABLE videos ADD COLUMN voiceId TEXT');
-} catch {
-  /* column already exists */
+const connectionString = process.env.SUPABASE_DB_URL;
+if (!connectionString) {
+  throw new Error(
+    'SUPABASE_DB_URL is not set. Add your Supabase Postgres connection string to .env (Settings -> Database -> Connection string).',
+  );
 }
 
-// migration for databases created before accounts existed
-try {
-  db.exec('ALTER TABLE videos ADD COLUMN userId TEXT');
-} catch {
-  /* column already exists */
+// Supabase's pooled connection requires SSL; the pooler's certificate isn't
+// in Node's default trust store, so we don't verify it (fine for a
+// server-to-database link over a provider-managed connection).
+const pool = new Pool({
+  connectionString,
+  ssl: { rejectUnauthorized: false },
+});
+
+pool.on('error', (err) => {
+  console.error('[db] unexpected error on idle Postgres client:', err.message);
+});
+
+// --- schema (idempotent — safe to run on every startup) ---
+const ready = (async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS videos (
+      "id" TEXT PRIMARY KEY,
+      "title" TEXT NOT NULL,
+      "courseContent" TEXT NOT NULL,
+      "animationStyle" TEXT NOT NULL,
+      "quality" TEXT NOT NULL,
+      "status" TEXT NOT NULL DEFAULT 'queued',
+      "progress" INTEGER NOT NULL DEFAULT 0,
+      "falJobId" TEXT,
+      "audioPath" TEXT,
+      "videoPath" TEXT,
+      "fileSize" REAL,
+      "createdAt" TEXT NOT NULL,
+      "completedAt" TEXT,
+      "errorMessage" TEXT,
+      "voiceId" TEXT,
+      "userId" TEXT
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      "id" TEXT PRIMARY KEY,
+      "email" TEXT NOT NULL UNIQUE,
+      "passwordHash" TEXT NOT NULL,
+      "fullName" TEXT NOT NULL,
+      "title" TEXT,
+      "avatarPath" TEXT,
+      "subscriptionId" TEXT,
+      "plan" TEXT NOT NULL DEFAULT 'free',
+      "billingCycle" TEXT NOT NULL DEFAULT '1',
+      "planUpdatedAt" TEXT,
+      "theme" TEXT NOT NULL DEFAULT 'system',
+      "locale" TEXT NOT NULL DEFAULT 'en-US',
+      "timezone" TEXT,
+      "notifyProduct" INTEGER NOT NULL DEFAULT 1,
+      "notifyMarketing" INTEGER NOT NULL DEFAULT 0,
+      "notifyBilling" INTEGER NOT NULL DEFAULT 1,
+      "createdAt" TEXT NOT NULL
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      "id" TEXT PRIMARY KEY,
+      "userId" TEXT NOT NULL,
+      "userAgent" TEXT,
+      "createdAt" TEXT NOT NULL,
+      "lastSeenAt" TEXT NOT NULL
+    )
+  `);
+
+  await pool.query('CREATE INDEX IF NOT EXISTS videos_userId_idx ON videos ("userId")');
+  await pool.query('CREATE INDEX IF NOT EXISTS sessions_userId_idx ON sessions ("userId")');
+
+  console.log('[db] connected to Supabase Postgres, schema ready');
+})();
+
+// --- generic parameterized insert/update builders (quoted camelCase columns) ---
+function buildInsert(table, obj) {
+  const keys = Object.keys(obj);
+  const columns = keys.map((k) => `"${k}"`).join(', ');
+  const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+  return { text: `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`, values: keys.map((k) => obj[k]) };
 }
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    email TEXT NOT NULL UNIQUE,
-    passwordHash TEXT NOT NULL,
-    fullName TEXT NOT NULL,
-    title TEXT,
-    avatarPath TEXT,
-    subscriptionId TEXT,
-    plan TEXT NOT NULL DEFAULT 'free',
-    billingCycle TEXT NOT NULL DEFAULT '1',
-    planUpdatedAt TEXT,
-    theme TEXT NOT NULL DEFAULT 'system',
-    locale TEXT NOT NULL DEFAULT 'en-US',
-    timezone TEXT,
-    notifyProduct INTEGER NOT NULL DEFAULT 1,
-    notifyMarketing INTEGER NOT NULL DEFAULT 0,
-    notifyBilling INTEGER NOT NULL DEFAULT 1,
-    createdAt TEXT NOT NULL
-  )
-`);
-
-// migration for user databases created before subscription IDs existed
-try {
-  db.exec('ALTER TABLE users ADD COLUMN subscriptionId TEXT');
-} catch {
-  /* column already exists */
+function buildUpdate(table, id, fields) {
+  const keys = Object.keys(fields);
+  const setClause = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+  const values = keys.map((k) => fields[k]);
+  values.push(id);
+  return { text: `UPDATE ${table} SET ${setClause} WHERE "id" = $${values.length}`, values };
 }
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS sessions (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    userAgent TEXT,
-    createdAt TEXT NOT NULL,
-    lastSeenAt TEXT NOT NULL
-  )
-`);
-
-function createUser(user) {
-  db.prepare(`
-    INSERT INTO users (id, email, passwordHash, fullName, title, subscriptionId, plan, billingCycle, planUpdatedAt, theme, locale, createdAt)
-    VALUES (@id, @email, @passwordHash, @fullName, @title, @subscriptionId, @plan, @billingCycle, @planUpdatedAt, @theme, @locale, @createdAt)
-  `).run(user);
+// --- users ---
+async function createUser(user) {
+  const { text, values } = buildInsert('users', user);
+  await pool.query(text, values);
   return getUserById(user.id);
 }
 
-function getUserByEmail(email) {
-  return db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
+async function getUserByEmail(email) {
+  const { rows } = await pool.query('SELECT * FROM users WHERE "email" = $1', [email.toLowerCase().trim()]);
+  return rows[0] || null;
 }
 
-function getUserById(id) {
-  return db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+async function getUserById(id) {
+  const { rows } = await pool.query('SELECT * FROM users WHERE "id" = $1', [id]);
+  return rows[0] || null;
 }
 
-function updateUser(id, fields) {
+async function updateUser(id, fields) {
   const keys = Object.keys(fields);
   if (keys.length === 0) return getUserById(id);
-  const setClause = keys.map((k) => `${k} = @${k}`).join(', ');
-  db.prepare(`UPDATE users SET ${setClause} WHERE id = @id`).run({ ...fields, id });
+  const { text, values } = buildUpdate('users', id, fields);
+  await pool.query(text, values);
   return getUserById(id);
 }
 
-function deleteUser(id) {
-  db.prepare('DELETE FROM users WHERE id = ?').run(id);
-  db.prepare('DELETE FROM sessions WHERE userId = ?').run(id);
-  db.prepare('DELETE FROM videos WHERE userId = ?').run(id);
+async function deleteUser(id) {
+  await pool.query('DELETE FROM users WHERE "id" = $1', [id]);
+  await pool.query('DELETE FROM sessions WHERE "userId" = $1', [id]);
+  await pool.query('DELETE FROM videos WHERE "userId" = $1', [id]);
 }
 
-function createSession(session) {
-  db.prepare(`
-    INSERT INTO sessions (id, userId, userAgent, createdAt, lastSeenAt)
-    VALUES (@id, @userId, @userAgent, @createdAt, @lastSeenAt)
-  `).run(session);
+// --- sessions ---
+async function createSession(session) {
+  const { text, values } = buildInsert('sessions', session);
+  await pool.query(text, values);
   return session;
 }
 
-function getSessionById(id) {
-  return db.prepare('SELECT * FROM sessions WHERE id = ?').get(id);
+async function getSessionById(id) {
+  const { rows } = await pool.query('SELECT * FROM sessions WHERE "id" = $1', [id]);
+  return rows[0] || null;
 }
 
-function getSessionsForUser(userId) {
-  return db.prepare('SELECT * FROM sessions WHERE userId = ? ORDER BY lastSeenAt DESC').all(userId);
+async function getSessionsForUser(userId) {
+  const { rows } = await pool.query('SELECT * FROM sessions WHERE "userId" = $1 ORDER BY "lastSeenAt" DESC', [userId]);
+  return rows;
 }
 
-function touchSession(id) {
-  db.prepare('UPDATE sessions SET lastSeenAt = ? WHERE id = ?').run(new Date().toISOString(), id);
+async function touchSession(id) {
+  await pool.query('UPDATE sessions SET "lastSeenAt" = $1 WHERE "id" = $2', [new Date().toISOString(), id]);
 }
 
-function deleteSession(id) {
-  db.prepare('DELETE FROM sessions WHERE id = ?').run(id);
+async function deleteSession(id) {
+  await pool.query('DELETE FROM sessions WHERE "id" = $1', [id]);
 }
 
-function deleteOtherSessions(userId, keepSessionId) {
-  db.prepare('DELETE FROM sessions WHERE userId = ? AND id != ?').run(userId, keepSessionId);
+async function deleteOtherSessions(userId, keepSessionId) {
+  await pool.query('DELETE FROM sessions WHERE "userId" = $1 AND "id" != $2', [userId, keepSessionId]);
 }
 
-function deleteAllSessions(userId) {
-  db.prepare('DELETE FROM sessions WHERE userId = ?').run(userId);
+async function deleteAllSessions(userId) {
+  await pool.query('DELETE FROM sessions WHERE "userId" = $1', [userId]);
 }
 
-function createVideo(video) {
-  const stmt = db.prepare(`
-    INSERT INTO videos (id, title, courseContent, animationStyle, quality, voiceId, userId, status, progress, createdAt)
-    VALUES (@id, @title, @courseContent, @animationStyle, @quality, @voiceId, @userId, @status, @progress, @createdAt)
-  `);
-  stmt.run(video);
+// --- videos ---
+async function createVideo(video) {
+  const { text, values } = buildInsert('videos', video);
+  await pool.query(text, values);
   return video;
 }
 
-function getAllVideos() {
-  return db.prepare('SELECT * FROM videos ORDER BY createdAt DESC').all();
+async function getAllVideos() {
+  const { rows } = await pool.query('SELECT * FROM videos ORDER BY "createdAt" DESC');
+  return rows;
 }
 
-function getVideosForUser(userId) {
-  return db.prepare('SELECT * FROM videos WHERE userId = ? ORDER BY createdAt DESC').all(userId);
+async function getVideosForUser(userId) {
+  const { rows } = await pool.query('SELECT * FROM videos WHERE "userId" = $1 ORDER BY "createdAt" DESC', [userId]);
+  return rows;
 }
 
-function countVideosThisMonthForUser(userId) {
+async function countVideosThisMonthForUser(userId) {
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
-  const row = db
-    .prepare('SELECT COUNT(*) as count FROM videos WHERE userId = ? AND createdAt >= ?')
-    .get(userId, startOfMonth.toISOString());
-  return row.count;
+  const { rows } = await pool.query(
+    'SELECT COUNT(*)::int as count FROM videos WHERE "userId" = $1 AND "createdAt" >= $2',
+    [userId, startOfMonth.toISOString()],
+  );
+  return rows[0].count;
 }
 
-function getVideoById(id) {
-  return db.prepare('SELECT * FROM videos WHERE id = ?').get(id);
+async function getVideoById(id) {
+  const { rows } = await pool.query('SELECT * FROM videos WHERE "id" = $1', [id]);
+  return rows[0] || null;
 }
 
-function updateVideo(id, fields) {
+async function updateVideo(id, fields) {
   const keys = Object.keys(fields);
   if (keys.length === 0) return getVideoById(id);
-  const setClause = keys.map((k) => `${k} = @${k}`).join(', ');
-  db.prepare(`UPDATE videos SET ${setClause} WHERE id = @id`).run({ ...fields, id });
+  const { text, values } = buildUpdate('videos', id, fields);
+  await pool.query(text, values);
   return getVideoById(id);
 }
 
-function deleteVideo(id) {
-  db.prepare('DELETE FROM videos WHERE id = ?').run(id);
+async function deleteVideo(id) {
+  await pool.query('DELETE FROM videos WHERE "id" = $1', [id]);
 }
 
 module.exports = {
-  db,
+  ready,
   STORAGE_PATH,
   createVideo,
   getAllVideos,

@@ -2,14 +2,17 @@
 
 Turn course content (markdown or plain text) into an animated explainer video. The pipeline uses
 Claude to break content into a scene-by-scene script, ElevenLabs to generate a voiceover, and
-renders locally, then stores everything in SQLite + the filesystem — behind real user accounts,
-a 4-tier pricing page, and a full account settings area.
+renders locally, then stores account/video metadata in Supabase Postgres — behind real user
+accounts, a 4-tier pricing page, and a full account settings area.
 
 ## Tech Stack
 
 - **Frontend:** React + TypeScript + Vite, Apple-inspired design system (custom dropdowns, Inter
   font, light/dark theming)
 - **Backend:** Node.js + Express
+- **Database:** Supabase Postgres (accessed directly via `pg`, not the Supabase JS client/RLS —
+  auth is our own, so the backend connects with a normal Postgres connection string). Schema is
+  created automatically on startup if it doesn't exist.
 - **Accounts:** email/password auth with bcrypt + server-side sessions (own implementation, no
   third-party auth provider). Google/Microsoft/GitHub SSO buttons exist in the UI but are disabled
   until you supply OAuth credentials.
@@ -22,8 +25,8 @@ a 4-tier pricing page, and a full account settings area.
 - **Scene images:** pulled from the internet — Pexels (optional key) → Openverse → Wikimedia
   Commons fallback chain, plus tech icons from Iconify (no key needed)
 - **Video rendering:** local compositing with sharp + ffmpeg (default), or fal.ai API (optional)
-- **Storage:** SQLite (`videos/db.sqlite`) + local filesystem (`videos/audio`, `videos/generated`,
-  `videos/avatars`)
+- **Storage:** Supabase Postgres for all metadata (users, sessions, video records) + local
+  filesystem for the actual media files (`videos/audio`, `videos/generated`, `videos/avatars`)
 - **Job queue:** in-memory FIFO queue (no Redis), with automatic recovery of interrupted jobs on
   server restart
 
@@ -44,7 +47,8 @@ a 4-tier pricing page, and a full account settings area.
 │   ├── config/plans.js     pricing tiers + billing cycle discounts
 │   ├── queue/videoQueue.js
 │   └── database/db.js
-├── videos/              created at runtime: audio/, generated/, avatars/, db.sqlite
+├── videos/              created at runtime: audio/, generated/, avatars/ (media files only —
+│                        users/sessions/videos metadata lives in Supabase Postgres)
 ├── .env.example
 └── README.md
 ```
@@ -53,6 +57,9 @@ a 4-tier pricing page, and a full account settings area.
 
 Required:
 
+- **Supabase Postgres connection string** — create a free project at
+  [supabase.com](https://supabase.com), then go to **Settings → Database → Connection string** and
+  copy the "URI" / "Transaction pooler" form (port 6543). Fill in your database password.
 - **Claude API key** — create one at [console.anthropic.com](https://console.anthropic.com/settings/keys).
 - **ElevenLabs API key** — sign up at [elevenlabs.io](https://elevenlabs.io), then find your key under
   Profile Settings → API Keys.
@@ -71,8 +78,7 @@ Copy `.env.example` to `.env` in the project root and fill in your keys.
 
 ## 2. Running Locally
 
-Requires Node.js 22.5+ (the backend uses Node's built-in `node:sqlite` module, so no native
-build tools or extra database dependency are required).
+Requires Node.js 18+ and a `SUPABASE_DB_URL` in `.env` — the backend refuses to start without one.
 
 ```bash
 # Backend
@@ -90,17 +96,24 @@ The Vite dev server proxies `/api/*` requests to the backend (see `frontend/vite
 open `http://localhost:5173` and use the app normally.
 
 On first run, the backend automatically creates `videos/audio/`, `videos/generated/`, and
-`videos/db.sqlite` with the required schema — no manual database setup needed.
+`videos/avatars/` locally, and creates the `users`, `sessions`, and `videos` tables in your Supabase
+project if they don't already exist — no manual migration step needed.
 
 ## 3. How Storage Is Organized
 
-- **`videos/db.sqlite`** — single `videos` table tracking every job: title, course content, style,
-  quality, status, progress, fal.ai job id, file paths, file size, and timestamps.
-- **`videos/audio/`** — intermediate ElevenLabs MP3 narration files. Deleted automatically once the
-  final video finishes rendering.
-- **`videos/generated/`** — final MP4s, named `{courseTitle}_{timestamp}_{quality}.mp4`.
-- The Dashboard shows total disk usage across both folders ("You're using X MB").
-- Deleting a video from the Dashboard removes both its database row and its file(s) on disk.
+- **Supabase Postgres** holds three tables: `users` (profile, plan, preferences), `sessions` (one
+  row per signed-in device), and `videos` (title, course content, style, quality, status, progress,
+  file paths, file size, timestamps, owning `userId`). Browse/query them anytime from the Supabase
+  dashboard's Table Editor or SQL Editor.
+- **`videos/audio/`** (local disk) — intermediate ElevenLabs MP3 narration files. Deleted
+  automatically once the final video finishes rendering.
+- **`videos/generated/`** (local disk) — final MP4s, named `{courseTitle}_{timestamp}_{quality}.mp4`.
+- **`videos/avatars/`** (local disk) — uploaded profile pictures, served at `/avatars/*`.
+- The Dashboard shows total local disk usage across the media folders ("You're using X MB").
+- Deleting a video removes both its Postgres row and its file(s) on disk.
+- Only file *metadata* lives in Supabase — the actual MP4/MP3/avatar files stay on this machine's
+  disk. If you deploy the backend elsewhere, deploy `videos/` alongside it (or move media to
+  Supabase Storage / S3 — not implemented here).
 
 ## 4. Processing Pipeline
 

@@ -19,16 +19,28 @@ function enqueue(videoId) {
 }
 
 /**
+ * Fire-and-forget progress update for use inside callbacks that can't be
+ * awaited (composeVideo's onProgress, fal's poll callback). Losing one
+ * progress tick to a transient DB hiccup isn't worth stalling the render.
+ */
+function updateProgress(videoId, progress) {
+  updateVideo(videoId, { progress }).catch((err) => {
+    console.error(`[queue] progress update failed for ${videoId}:`, err.message);
+  });
+}
+
+/**
  * The queue lives in memory, so a server restart orphans any job that was
  * queued or mid-processing (DB row stuck at "processing" with no worker).
  * Called on startup to re-enqueue them from scratch.
  */
-function recoverPendingJobs() {
-  const { getAllVideos } = require('../database/db');
-  const pending = getAllVideos().filter((v) => v.status === 'queued' || v.status === 'processing');
+async function recoverPendingJobs() {
+  const { getAllVideos, updateVideo: dbUpdateVideo } = require('../database/db');
+  const all = await getAllVideos();
+  const pending = all.filter((v) => v.status === 'queued' || v.status === 'processing');
   for (const video of pending) {
     console.log(`[queue] recovering interrupted job: ${video.title} (${video.id})`);
-    require('../database/db').updateVideo(video.id, { status: 'queued', progress: 0 });
+    await dbUpdateVideo(video.id, { status: 'queued', progress: 0 });
     enqueue(video.id);
   }
 }
@@ -43,10 +55,10 @@ async function processNext() {
     await processVideo(videoId);
   } catch (err) {
     console.error(`[queue] job ${videoId} failed:`, err);
-    updateVideo(videoId, {
+    await updateVideo(videoId, {
       status: 'failed',
       errorMessage: err.message || String(err),
-    });
+    }).catch((dbErr) => console.error(`[queue] failed to record failure for ${videoId}:`, dbErr.message));
   } finally {
     processing = false;
     processNext();
@@ -54,20 +66,20 @@ async function processNext() {
 }
 
 async function processVideo(videoId) {
-  const video = getVideoById(videoId);
+  const video = await getVideoById(videoId);
   if (!video) return;
 
-  updateVideo(videoId, { status: 'processing', progress: 5 });
+  await updateVideo(videoId, { status: 'processing', progress: 5 });
 
   // Step 1: scene script via Claude
   const script = await generateScript(video.title, video.courseContent, video.animationStyle);
-  updateVideo(videoId, { progress: 15 });
+  await updateVideo(videoId, { progress: 15 });
 
   // Step 2: voiceover via ElevenLabs
   const fullNarration = script.scenes.map((s) => s.narration).join(' ');
   const audioPath = fileService.audioPathFor(video.title, video.id);
   await generateVoiceover(fullNarration, audioPath, video.voiceId || undefined);
-  updateVideo(videoId, { audioPath, progress: 30 });
+  await updateVideo(videoId, { audioPath, progress: 30 });
 
   const renderMode = (process.env.RENDER_MODE || 'local').toLowerCase();
   const videoPath = fileService.videoPathFor(video.title, video.quality);
@@ -81,7 +93,7 @@ async function processVideo(videoId) {
   const fileSize = fileService.getFileSizeMB(videoPath);
   fileService.deleteIfExists(audioPath); // audio is muxed into the video now
 
-  updateVideo(videoId, {
+  await updateVideo(videoId, {
     status: 'complete',
     progress: 100,
     videoPath,
@@ -140,7 +152,7 @@ async function renderLocally(videoId, video, script, audioPath, videoPath) {
         sceneAssets.push({ backgroundPath, iconSvg });
       }
 
-      updateVideo(videoId, {
+      await updateVideo(videoId, {
         progress: 30 + Math.round(((i + 1) / script.scenes.length) * 25),
       });
     }
@@ -153,7 +165,7 @@ async function renderLocally(videoId, video, script, audioPath, videoPath) {
       quality: video.quality,
       animationStyle: video.animationStyle,
       outputPath: videoPath,
-      onProgress: (pct) => updateVideo(videoId, { progress: 55 + Math.round(pct * 0.43) }),
+      onProgress: (pct) => updateProgress(videoId, 55 + Math.round(pct * 0.43)),
     });
   } finally {
     fs.rmSync(assetDir, { recursive: true, force: true });
@@ -177,12 +189,12 @@ async function renderWithFal(videoId, video, script, audioPath, videoPath) {
     quality: video.quality,
     animationStyle: video.animationStyle,
   });
-  updateVideo(videoId, { falJobId: jobId, progress: 50 });
+  await updateVideo(videoId, { falJobId: jobId, progress: 50 });
 
   await fal.waitForCompletion(statusUrl, (status) => {
     const remoteProgress = typeof status.progress === 'number' ? status.progress : 0;
     const scaled = 50 + Math.min(40, Math.round(remoteProgress * 0.4));
-    updateVideo(videoId, { progress: scaled });
+    updateProgress(videoId, scaled);
   });
 
   const result = await fal.fetchResult(responseUrl);
