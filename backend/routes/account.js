@@ -6,7 +6,10 @@ const db = require('../database/db');
 const auth = require('../services/authService');
 const fileService = require('../services/fileService');
 const asyncHandler = require('../utils/asyncHandler');
+const paypal = require('../services/paypalService');
 const { getPlan, getCycle, priceForPlan, PLANS, BILLING_CYCLES } = require('../config/plans');
+
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 const router = express.Router();
 const AVATAR_DIR = path.join(db.STORAGE_PATH, 'avatars');
@@ -166,16 +169,76 @@ router.post(
       return res.status(400).json({ message: 'Invalid billing cycle' });
     }
 
+    // Real checkout for paid plans goes through PayPal (see /billing/paypal/*)
+    // — this endpoint only ever assigns a plan without charging anything, so
+    // it's for the Free plan and admin/manual overrides.
     const user = await db.updateUser(req.user.id, {
       plan: planId,
       billingCycle: String(billingCycle),
       planUpdatedAt: new Date().toISOString(),
+      paypalSubscriptionId: planId === 'free' ? null : req.user.paypalSubscriptionId,
     });
     res.json({
       user: auth.sanitizeUser(user),
-      message:
-        'Plan updated. No payment was charged — connect a payment processor (e.g. Stripe) to bill real cards.',
+      message: 'Plan updated without a charge.',
     });
+  }),
+);
+
+// --- Billing: PayPal checkout ---
+router.post(
+  '/billing/paypal/create-subscription',
+  asyncHandler(async (req, res) => {
+    const { planId, billingCycle } = req.body || {};
+    const plan = PLANS.find((p) => p.id === planId);
+    if (!plan) return res.status(400).json({ message: 'Unknown plan' });
+    if (plan.id === 'free') return res.status(400).json({ message: 'The Free plan needs no checkout' });
+    if (!BILLING_CYCLES.some((c) => String(c.months) === String(billingCycle))) {
+      return res.status(400).json({ message: 'Invalid billing cycle' });
+    }
+
+    // PayPal appends its own `subscription_id` (and `ba_token`/`token`) query
+    // params to return_url on redirect — no templating needed here.
+    const { subscriptionId, approveUrl } = await paypal.createSubscription({
+      planId: plan.id,
+      cycleMonths: Number(billingCycle),
+      returnUrl: `${FRONTEND_URL}/pricing?paypal=success`,
+      cancelUrl: `${FRONTEND_URL}/pricing?paypal=cancelled`,
+      subscriberEmail: req.user.email,
+      subscriberName: req.user.fullName,
+    });
+
+    if (!approveUrl) {
+      return res.status(502).json({ message: 'PayPal did not return an approval link' });
+    }
+    res.json({ subscriptionId, approveUrl });
+  }),
+);
+
+router.post(
+  '/billing/paypal/confirm',
+  asyncHandler(async (req, res) => {
+    const { subscriptionId } = req.body || {};
+    if (!subscriptionId) return res.status(400).json({ message: 'subscriptionId is required' });
+
+    const subscription = await paypal.getSubscription(subscriptionId);
+    if (subscription.status !== 'ACTIVE') {
+      return res.status(400).json({ message: `Subscription is not active yet (status: ${subscription.status})` });
+    }
+
+    const mapping = await db.getPaypalPlanByPaypalPlanId(subscription.plan_id);
+    if (!mapping) {
+      return res.status(502).json({ message: "Couldn't match this subscription to a known plan" });
+    }
+
+    const user = await db.updateUser(req.user.id, {
+      plan: mapping.planId,
+      billingCycle: String(mapping.cycleMonths),
+      planUpdatedAt: new Date().toISOString(),
+      paypalSubscriptionId: subscription.id,
+    });
+
+    res.json({ user: auth.sanitizeUser(user), message: 'Subscription active — plan updated.' });
   }),
 );
 

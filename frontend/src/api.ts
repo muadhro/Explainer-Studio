@@ -151,6 +151,24 @@ export async function switchPlan(planId: string, billingCycle: number): Promise<
   return handleResponse(response);
 }
 
+export async function createPaypalSubscription(
+  planId: string,
+  billingCycle: number,
+): Promise<{ subscriptionId: string; approveUrl: string }> {
+  const response = await jsonFetch('/api/account/billing/paypal/create-subscription', 'POST', {
+    planId,
+    billingCycle,
+  });
+  return handleResponse(response);
+}
+
+export async function confirmPaypalSubscription(
+  subscriptionId: string,
+): Promise<{ user: User; message: string }> {
+  const response = await jsonFetch('/api/account/billing/paypal/confirm', 'POST', { subscriptionId });
+  return handleResponse(response);
+}
+
 export function exportAccountUrl(): string {
   return '/api/account/export';
 }

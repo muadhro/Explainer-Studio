@@ -105,6 +105,26 @@ select {
   gap: 10px;
 }
 
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--ink-secondary);
+  color: var(--blue);
+}
+
 .app-nav__links a {
   color: rgba(0, 0, 0, 0.72);
   text-decoration: none;
@@ -1079,6 +1099,18 @@ button[type='submit']:disabled {
   color: var(--ink-secondary);
   font-size: 13px;
   margin-top: 32px;
+}
+
+.pricing-notice {
+  text-align: center;
+  color: #1a7f37;
+  background: #e2f8e8;
+  border-radius: 980px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  max-width: fit-content;
+  margin: 0 auto 20px;
 }
 
 /* --- Account settings --- */

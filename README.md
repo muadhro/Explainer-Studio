@@ -17,8 +17,9 @@ accounts, a 4-tier pricing page, and a full account settings area.
   third-party auth provider). Google/Microsoft/GitHub SSO buttons exist in the UI but are disabled
   until you supply OAuth credentials.
 - **Billing:** 4 plan tiers with 1/3/6/12-month commitment discounts, enforced server-side (video
-  quota, max quality). No payment processor is wired up — plan switches update the stored plan but
-  do not charge a card. Connect Stripe (or similar) to bill for real.
+  quota, max quality). Paid-plan checkout is real, via **PayPal Subscriptions** — the buyer approves
+  on PayPal, then the plan activates on return. Defaults to PayPal's Sandbox (`PAYPAL_MODE=sandbox`),
+  so nothing charges real money until you switch to Live credentials.
 - **Script generation:** Claude API
 - **Text-to-speech:** ElevenLabs API, with TTS-friendly narration rewriting (IPs/domains spoken
   out) and a full voice picker with previews
@@ -216,10 +217,20 @@ Quality: `720p`
   OAuth app credentials.
 - **Pricing** (`/pricing`) has 4 tiers — Free, Starter ($25), Creator ($65, marked Popular), Studio
   ($149) — defined in `backend/config/plans.js`. A 1/3/6/12-month toggle applies 0/10/15/20%
-  monthly-equivalent discounts. Selecting a plan while signed in calls
-  `POST /api/account/billing/plan`, which updates the stored plan immediately — **no card is ever
-  charged**, since no payment processor is connected. Wire in Stripe (or similar) and swap that
-  route's body for real checkout/subscription calls when you're ready to take payments.
+  monthly-equivalent discounts. Selecting the **Free** plan calls `POST /api/account/billing/plan`,
+  which just assigns the plan — no charge is possible since it's $0. Selecting a **paid** plan calls
+  `POST /api/account/billing/paypal/create-subscription`, which lazily creates a matching PayPal
+  Product + Billing Plan (cached in the `paypal_plans` table so each tier/term combo is only created
+  once), then redirects the buyer to PayPal to approve. On return, `POST
+  /api/account/billing/paypal/confirm` verifies the subscription is `ACTIVE` with PayPal directly
+  before activating the plan — the frontend never has to be trusted on its own.
+  - **Sandbox by default** (`PAYPAL_MODE=sandbox` in `.env`) — nothing charges real money until you
+    switch to Live PayPal Business credentials.
+  - **Webhooks are not wired up.** PayPal can notify your backend automatically about renewals,
+    failed payments, and cancellations, but that requires a public HTTPS URL, which `localhost`
+    doesn't have. Until you deploy somewhere with a public URL (or tunnel it for testing), plan
+    status only updates at the moment of checkout — a renewal or a cancellation made directly on
+    PayPal's side won't be reflected here automatically.
 - **Plan limits are enforced for real**: each plan's monthly video quota and max quality (720p vs
   1080p) are checked server-side on every `POST /api/videos` — not just a UI suggestion.
 - **Account Settings** (`/account`) has 5 tabs: Profile (name/title/avatar), Security
@@ -237,7 +248,9 @@ Quality: `720p`
 - `falService.js` assumes a generic fal.ai queue-based model API (submit → poll `status_url` → fetch
   `response_url`). Update the model endpoint and payload shape to match the specific fal.ai model you
   choose for animation generation.
-- No real payment processor or OAuth SSO is connected (see Accounts section above) — both are
-  reversible additions to the existing routes/UI, not a redesign.
+- OAuth SSO (Google/Microsoft/GitHub) is not connected — the buttons are visible but disabled until
+  you add real OAuth app credentials.
+- PayPal webhooks aren't wired up yet (needs a public URL — see Accounts section above), so renewal
+  and cancellation events from PayPal don't automatically sync back to this app yet.
 - `/terms` and `/privacy` are placeholder pages. Replace their content before launching to real
   users.

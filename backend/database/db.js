@@ -75,9 +75,16 @@ const ready = (async () => {
       "notifyProduct" INTEGER NOT NULL DEFAULT 1,
       "notifyMarketing" INTEGER NOT NULL DEFAULT 0,
       "notifyBilling" INTEGER NOT NULL DEFAULT 1,
+      "role" TEXT NOT NULL DEFAULT 'user',
       "createdAt" TEXT NOT NULL
     )
   `);
+
+  // migration for databases created before the admin role existed
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "role" TEXT NOT NULL DEFAULT 'user'`);
+
+  // migration for databases created before PayPal billing existed
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "paypalSubscriptionId" TEXT`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sessions (
@@ -86,6 +93,19 @@ const ready = (async () => {
       "userAgent" TEXT,
       "createdAt" TEXT NOT NULL,
       "lastSeenAt" TEXT NOT NULL
+    )
+  `);
+
+  // caches the PayPal Product/Plan IDs we create for each (tier, billing cycle)
+  // combo, so we create them once with PayPal and reuse them after that.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS paypal_plans (
+      "planId" TEXT NOT NULL,
+      "cycleMonths" INTEGER NOT NULL,
+      "paypalProductId" TEXT NOT NULL,
+      "paypalPlanId" TEXT NOT NULL,
+      "createdAt" TEXT NOT NULL,
+      PRIMARY KEY ("planId", "cycleMonths")
     )
   `);
 
@@ -220,6 +240,26 @@ async function deleteVideo(id) {
   await pool.query('DELETE FROM videos WHERE "id" = $1', [id]);
 }
 
+// --- paypal plan cache ---
+async function getPaypalPlan(planId, cycleMonths) {
+  const { rows } = await pool.query(
+    'SELECT * FROM paypal_plans WHERE "planId" = $1 AND "cycleMonths" = $2',
+    [planId, cycleMonths],
+  );
+  return rows[0] || null;
+}
+
+async function savePaypalPlan(entry) {
+  const { text, values } = buildInsert('paypal_plans', entry);
+  await pool.query(text, values);
+  return entry;
+}
+
+async function getPaypalPlanByPaypalPlanId(paypalPlanId) {
+  const { rows } = await pool.query('SELECT * FROM paypal_plans WHERE "paypalPlanId" = $1', [paypalPlanId]);
+  return rows[0] || null;
+}
+
 module.exports = {
   ready,
   STORAGE_PATH,
@@ -242,4 +282,7 @@ module.exports = {
   deleteSession,
   deleteOtherSessions,
   deleteAllSessions,
+  getPaypalPlan,
+  savePaypalPlan,
+  getPaypalPlanByPaypalPlanId,
 };

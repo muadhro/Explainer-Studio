@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import { fetchBilling, switchPlan } from '../api';
+import { fetchBilling, switchPlan, createPaypalSubscription, confirmPaypalSubscription } from '../api';
 import type { BillingInfo } from '../types';
 
 export default function Pricing() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [billing, setBilling] = useState<BillingInfo | null>(null);
   const [cycleMonths, setCycleMonths] = useState(1);
   const [switching, setSwitching] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -21,6 +23,37 @@ export default function Pricing() {
       })
       .catch(() => {});
   }, [user]);
+
+  // Handle the redirect back from PayPal after the buyer approves (or cancels)
+  useEffect(() => {
+    const paypalResult = searchParams.get('paypal');
+    if (!paypalResult || !user) return;
+
+    if (paypalResult === 'cancelled') {
+      setNotice('Checkout was cancelled — your plan was not changed.');
+      setSearchParams({}, { replace: true });
+      return;
+    }
+
+    if (paypalResult === 'success') {
+      const subscriptionId = searchParams.get('subscription_id');
+      if (!subscriptionId) {
+        setError("PayPal didn't return a subscription id.");
+        setSearchParams({}, { replace: true });
+        return;
+      }
+      confirmPaypalSubscription(subscriptionId)
+        .then(async () => {
+          setNotice('Payment approved — your plan is now active.');
+          setBilling(await fetchBilling());
+        })
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : 'Failed to confirm the PayPal subscription');
+        })
+        .finally(() => setSearchParams({}, { replace: true }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, searchParams]);
 
   const cycles = billing?.billingCycles || [
     { months: 1, label: '1 Month', discountPct: 0 },
@@ -42,6 +75,7 @@ export default function Pricing() {
 
   async function handleSelect(planId: string) {
     setError(null);
+    setNotice(null);
     if (!user) {
       navigate('/signup');
       return;
@@ -50,9 +84,16 @@ export default function Pricing() {
 
     setSwitching(planId);
     try {
-      await switchPlan(planId, cycleMonths);
-      const updated = await fetchBilling();
-      setBilling(updated);
+      if (planId === 'free') {
+        await switchPlan(planId, cycleMonths);
+        setBilling(await fetchBilling());
+      } else {
+        // Paid plans go through a real PayPal checkout — redirect the buyer
+        // to PayPal to approve, then they land back here via the return_url.
+        const { approveUrl } = await createPaypalSubscription(planId, cycleMonths);
+        window.location.href = approveUrl;
+        return; // leaving the page
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update plan');
     } finally {
@@ -79,6 +120,7 @@ export default function Pricing() {
         ))}
       </div>
 
+      {notice && <p className="pricing-notice">{notice}</p>}
       {error && <div className="error-text" style={{ textAlign: 'center', marginBottom: 16 }}>{error}</div>}
 
       <div className="pricing-grid">
@@ -113,7 +155,9 @@ export default function Pricing() {
                 {isCurrent
                   ? 'Current Plan'
                   : switching === plan.id
-                    ? 'Updating…'
+                    ? plan.basePrice > 0
+                      ? 'Redirecting to PayPal…'
+                      : 'Updating…'
                     : isCurrentPlanDifferentCycle
                       ? 'Change Term'
                       : !user

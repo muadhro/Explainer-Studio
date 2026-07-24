@@ -66,6 +66,14 @@ function requireAuth(req, res, next) {
   next();
 }
 
+/** Express middleware: 403s if the signed-in user isn't an admin. Use after requireAuth. */
+function requireAdmin(req, res, next) {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  next();
+}
+
 function sanitizeUser(user) {
   if (!user) return null;
   const { passwordHash, ...safe } = user;
@@ -81,5 +89,6 @@ module.exports = {
   clearSessionCookie,
   attachUser,
   requireAuth,
+  requireAdmin,
   sanitizeUser,
 };
