@@ -12,6 +12,13 @@ const VIDEOS_URL = '/api/videos';
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
+    if (response.status === 401) {
+      // The session cookie is stale/invalid (deleted account, expired session,
+      // revoked from another device, etc). Tell AuthContext so it clears the
+      // cached user instead of leaving the UI showing a half-loaded, logged-in
+      // page for an account that no longer has a valid session.
+      window.dispatchEvent(new Event('auth:session-expired'));
+    }
     const body = await response.json().catch(() => ({ message: response.statusText }));
     throw new Error(body.message || `Request failed with status ${response.status}`);
   }
