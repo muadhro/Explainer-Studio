@@ -44,7 +44,10 @@ export interface BillingCycleOption {
 }
 
 export interface BillingInfo {
+  subscriptionId: string;
   plan: Plan & { cycle: number; price: { monthly: number; total: number } };
+  periodStart: string;
+  expiresAt: string | null;
   usage: { videosUsed: number; videosLimit: number };
   invoices: unknown[];
   plans: Plan[];

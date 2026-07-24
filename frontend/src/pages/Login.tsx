@@ -12,7 +12,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [showForgotNote, setShowForgotNote] = useState(false);
 
-  const from = (location.state as { from?: string } | null)?.from || '/upload';
+  const from = (location.state as { from?: string } | null)?.from || '/';
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

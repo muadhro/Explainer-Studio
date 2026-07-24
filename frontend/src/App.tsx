@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import UserMenu from './components/UserMenu';
+import Home from './pages/Home';
 import Upload from './pages/Upload';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
@@ -31,12 +32,6 @@ function ThemeSync() {
   }, [user?.theme]);
 
   return null;
-}
-
-function RootRedirect() {
-  const { user, loading } = useAuth();
-  if (loading) return null;
-  return <Navigate to={user ? '/upload' : '/pricing'} replace />;
 }
 
 function Nav() {
@@ -91,7 +86,7 @@ export default function App() {
           <Nav />
           <main>
             <Routes>
-              <Route path="/" element={<RootRedirect />} />
+              <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/pricing" element={<Pricing />} />

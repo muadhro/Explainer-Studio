@@ -24,17 +24,20 @@ router.post('/signup', async (req, res) => {
   }
 
   const passwordHash = await auth.hashPassword(password);
+  const now = new Date().toISOString();
   const user = db.createUser({
     id: uuidv4(),
     email: email.toLowerCase().trim(),
     passwordHash,
     fullName: fullName.trim(),
     title: null,
+    subscriptionId: `SUB-${uuidv4().split('-')[0].toUpperCase()}`,
     plan: 'free',
     billingCycle: '1',
+    planUpdatedAt: now,
     theme: 'system',
     locale: 'en-US',
-    createdAt: new Date().toISOString(),
+    createdAt: now,
   });
 
   const session = auth.createSessionForUser(user.id, req.headers['user-agent']);

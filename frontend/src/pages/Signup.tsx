@@ -32,7 +32,7 @@ export default function Signup() {
     setSubmitting(true);
     try {
       await signup(fullName, email, password);
-      navigate('/upload', { replace: true });
+      navigate('/', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create account');
     } finally {

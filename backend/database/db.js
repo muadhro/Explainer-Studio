@@ -59,6 +59,7 @@ db.exec(`
     fullName TEXT NOT NULL,
     title TEXT,
     avatarPath TEXT,
+    subscriptionId TEXT,
     plan TEXT NOT NULL DEFAULT 'free',
     billingCycle TEXT NOT NULL DEFAULT '1',
     planUpdatedAt TEXT,
@@ -72,6 +73,13 @@ db.exec(`
   )
 `);
 
+// migration for user databases created before subscription IDs existed
+try {
+  db.exec('ALTER TABLE users ADD COLUMN subscriptionId TEXT');
+} catch {
+  /* column already exists */
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
@@ -84,8 +92,8 @@ db.exec(`
 
 function createUser(user) {
   db.prepare(`
-    INSERT INTO users (id, email, passwordHash, fullName, title, plan, billingCycle, theme, locale, createdAt)
-    VALUES (@id, @email, @passwordHash, @fullName, @title, @plan, @billingCycle, @theme, @locale, @createdAt)
+    INSERT INTO users (id, email, passwordHash, fullName, title, subscriptionId, plan, billingCycle, planUpdatedAt, theme, locale, createdAt)
+    VALUES (@id, @email, @passwordHash, @fullName, @title, @subscriptionId, @plan, @billingCycle, @planUpdatedAt, @theme, @locale, @createdAt)
   `).run(user);
   return getUserById(user.id);
 }

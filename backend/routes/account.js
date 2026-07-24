@@ -96,15 +96,34 @@ router.patch('/preferences', (req, res) => {
   res.json({ user: auth.sanitizeUser(user) });
 });
 
+function addMonths(isoDate, months) {
+  const d = new Date(isoDate);
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString();
+}
+
 // --- Billing ---
 router.get('/billing', (req, res) => {
-  const plan = getPlan(req.user.plan);
-  const cycle = getCycle(req.user.billingCycle);
+  let user = req.user;
+
+  // backfill for accounts created before subscription IDs existed
+  if (!user.subscriptionId) {
+    const { v4: uuidv4 } = require('uuid');
+    user = db.updateUser(user.id, { subscriptionId: `SUB-${uuidv4().split('-')[0].toUpperCase()}` });
+  }
+
+  const plan = getPlan(user.plan);
+  const cycle = getCycle(user.billingCycle);
   const price = priceForPlan(plan.id, cycle.months);
-  const videosUsed = db.countVideosThisMonthForUser(req.user.id);
+  const videosUsed = db.countVideosThisMonthForUser(user.id);
+  const periodStart = user.planUpdatedAt || user.createdAt;
+  const expiresAt = plan.id === 'free' ? null : addMonths(periodStart, cycle.months);
 
   res.json({
+    subscriptionId: user.subscriptionId,
     plan: { ...plan, cycle: cycle.months, price },
+    periodStart,
+    expiresAt,
     usage: { videosUsed, videosLimit: plan.videosPerMonth },
     // no real payment processor is connected — this is a placeholder history
     invoices: [],

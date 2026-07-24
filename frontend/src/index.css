@@ -1445,6 +1445,125 @@ button[type='submit']:disabled {
   cursor: not-allowed;
 }
 
+/* --- Home page --- */
+.hero-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.subscription-card {
+  background: var(--bg);
+  border-radius: var(--radius-card);
+  padding: 28px 32px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  margin-top: 32px;
+}
+
+.subscription-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.subscription-card__plan {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.subscription-card__status {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 980px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.subscription-card__status--active {
+  background: #e2f8e8;
+  color: #1a7f37;
+}
+
+.subscription-card__status--free {
+  background: var(--bg-section);
+  color: var(--ink-secondary);
+}
+
+.subscription-card__id {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 13px;
+  color: var(--ink-secondary);
+  margin-top: 4px;
+}
+
+.subscription-card__row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  padding: 20px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 18px;
+}
+
+.subscription-card__label {
+  font-size: 12px;
+  color: var(--ink-secondary);
+  margin-bottom: 4px;
+}
+
+.subscription-card__value {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.home-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.home-action-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg);
+  border-radius: var(--radius-card);
+  padding: 22px 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  text-decoration: none;
+  color: var(--ink);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.home-action-card:not(.home-action-card--static):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.home-action-card--static {
+  cursor: default;
+}
+
+.home-action-card__title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.home-action-card__desc {
+  font-size: 13px;
+  color: var(--ink-secondary);
+  line-height: 1.4;
+}
+
 .legal-body {
   background: var(--bg);
   border-radius: var(--radius-card);
