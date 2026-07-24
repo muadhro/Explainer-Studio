@@ -1,0 +1,6 @@
+# Deployment scripts run on Linux — always store with LF endings regardless
+# of the platform that edits/checks them out, so they don't break with a
+# Windows CRLF "bad interpreter" error on the server.
+deploy/*.sh text eol=lf
+deploy/*.service text eol=lf
+deploy/*.conf text eol=lf

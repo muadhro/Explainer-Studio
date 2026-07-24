@@ -1,0 +1,20 @@
+[Unit]
+Description=Explainer Studio backend
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/explainerstudio/backend
+EnvironmentFile=/var/www/explainerstudio/.env
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+# picks up any jobs interrupted by a restart, same as local dev
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=explainer-backend
+
+[Install]
+WantedBy=multi-user.target
