@@ -159,6 +159,19 @@ async function getUserByGoogleId(googleId) {
   return rows[0] || null;
 }
 
+/** All users with their total video count — for the admin dashboard. */
+async function getAllUsersWithVideoCounts() {
+  const { rows } = await pool.query(`
+    SELECT u.*, COALESCE(v.count, 0)::int AS "videoCount"
+    FROM users u
+    LEFT JOIN (
+      SELECT "userId", COUNT(*) AS count FROM videos GROUP BY "userId"
+    ) v ON v."userId" = u.id
+    ORDER BY u."createdAt" DESC
+  `);
+  return rows;
+}
+
 async function updateUser(id, fields) {
   const keys = Object.keys(fields);
   if (keys.length === 0) return getUserById(id);
@@ -285,6 +298,7 @@ module.exports = {
   getUserByEmail,
   getUserById,
   getUserByGoogleId,
+  getAllUsersWithVideoCounts,
   updateUser,
   deleteUser,
   createSession,

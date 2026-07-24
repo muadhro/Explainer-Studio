@@ -6,6 +6,8 @@ import type {
   User,
   Session,
   BillingInfo,
+  AdminUser,
+  AdminStats,
 } from './types';
 
 const VIDEOS_URL = '/api/videos';
@@ -176,4 +178,16 @@ export function exportAccountUrl(): string {
 export async function deleteAccount(password: string): Promise<void> {
   const response = await jsonFetch('/api/account/delete', 'POST', { password });
   await handleResponse(response);
+}
+
+// --- Admin ---
+export async function fetchAdminUsers(): Promise<AdminUser[]> {
+  const response = await apiFetch('/api/admin/users');
+  const data = await handleResponse<{ users: AdminUser[] }>(response);
+  return data.users;
+}
+
+export async function fetchAdminStats(): Promise<AdminStats> {
+  const response = await apiFetch('/api/admin/stats');
+  return handleResponse<AdminStats>(response);
 }

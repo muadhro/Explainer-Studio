@@ -11,6 +11,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Pricing from './pages/Pricing';
 import Account from './pages/Account';
+import Admin from './pages/Admin';
 import Legal from './pages/Legal';
 
 function Nav() {
@@ -36,6 +37,11 @@ function Nav() {
           <NavLink to="/pricing" className={({ isActive }) => (isActive ? 'active' : '')}>
             Pricing
           </NavLink>
+          {user?.role === 'admin' && (
+            <NavLink to="/admin" className={({ isActive }) => (isActive ? 'active' : '')}>
+              Admin
+            </NavLink>
+          )}
         </div>
         <div className="app-nav__auth">
           <ThemeToggle />
@@ -93,6 +99,14 @@ export default function App() {
                   element={
                     <ProtectedRoute>
                       <Account />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedRoute adminOnly>
+                      <Admin />
                     </ProtectedRoute>
                   }
                 />

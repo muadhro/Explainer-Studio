@@ -17,7 +17,26 @@ export interface User {
   notifyBilling: number;
   hasPassword: boolean;
   hasGoogle: boolean;
+  role: 'user' | 'admin';
+  subscriptionId: string | null;
   createdAt: string;
+}
+
+export interface AdminUser extends User {
+  planName: string;
+  monthlyValue: number;
+  videoCount: number;
+}
+
+export interface AdminStats {
+  totalUsers: number;
+  activePaidSubscriptions: number;
+  estimatedMRR: number;
+  totalVideos: number;
+  totalStorageMB: number;
+  planCounts: Record<string, number>;
+  adminCount: number;
+  googleLinkedCount: number;
 }
 
 export interface Session {

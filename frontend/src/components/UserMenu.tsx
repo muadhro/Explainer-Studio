@@ -53,6 +53,11 @@ export default function UserMenu() {
           <button type="button" onClick={() => { setOpen(false); navigate('/pricing'); }}>
             Plans &amp; Billing
           </button>
+          {user.role === 'admin' && (
+            <button type="button" onClick={() => { setOpen(false); navigate('/admin'); }}>
+              Admin Dashboard
+            </button>
+          )}
           <button type="button" className="user-menu__logout" onClick={handleLogout}>
             Log Out
           </button>

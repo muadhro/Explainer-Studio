@@ -1622,3 +1622,75 @@ button[type='submit']:disabled {
   line-height: 1.6;
   color: var(--ink);
 }
+
+/* --- Admin dashboard --- */
+.admin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.admin-stat-card {
+  background: var(--bg);
+  border-radius: var(--radius-card);
+  padding: 20px 22px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.admin-stat-card__value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.admin-stat-card__label {
+  font-size: 13px;
+  color: var(--ink-secondary);
+  margin-top: 4px;
+}
+
+.admin-plan-breakdown {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.admin-plan-breakdown__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 80px;
+}
+
+.admin-plan-breakdown__count {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.admin-plan-breakdown__label {
+  font-size: 12px;
+  color: var(--ink-secondary);
+  text-transform: capitalize;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-table {
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.admin-badge {
+  display: inline-block;
+  background: var(--bg-section);
+  border: 1px solid var(--border);
+  border-radius: 980px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-secondary);
+  margin-right: 4px;
+}
