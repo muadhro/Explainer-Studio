@@ -5,13 +5,17 @@ DigitalOcean Droplet at `159.89.162.123`.
 
 ## 1. Point DNS at the Droplet
 
-In the DigitalOcean dashboard, under your domain's **Domain records**, click
-**Create a record** and add:
+DNS is hosted at the registrar (GoDaddy) directly — no DigitalOcean
+nameserver delegation needed. In GoDaddy's **DNS** / **Manage DNS** page for
+the domain, under **DNS Records**, add:
 
-| Type | Hostname | Value            | TTL  |
-| ---- | -------- | ---------------- | ---- |
-| A    | @        | 159.89.162.123   | 3600 |
-| A    | www      | 159.89.162.123   | 3600 |
+| Type | Name | Value            | TTL  |
+| ---- | ---- | ---------------- | ---- |
+| A    | @    | 159.89.162.123   | 600  |
+| A    | www  | 159.89.162.123   | 600  |
+
+Remove any pre-existing parking A/CNAME records GoDaddy added by default so
+they don't conflict.
 
 DNS can take a few minutes to a few hours to propagate. You can move on to
 the next steps while it does — the server setup doesn't depend on it, only
