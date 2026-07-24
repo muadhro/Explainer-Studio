@@ -68,12 +68,27 @@ has propagated), just without HTTPS yet.
 
 ## 5. Get HTTPS (once DNS has propagated)
 
+We use `certbot certonly` to just obtain the certificate files, then swap in
+the full HTTPS nginx config ourselves — `certbot --nginx`'s automatic config
+editor can fail to detect the server block on some setups (it did on this
+one), so this sidesteps that entirely:
+
 ```bash
-sudo certbot --nginx -d explainerstudio.org -d www.explainerstudio.org
+sudo certbot certonly --nginx -d explainerstudio.org -d www.explainerstudio.org
 ```
 
-Certbot edits the nginx config in place to add the SSL server block and an
-http→https redirect, and sets up auto-renewal.
+This obtains the certificate (saved to `/etc/letsencrypt/live/explainerstudio.org/`)
+without touching the nginx config. It also registers a scheduled renewal
+task automatically. Then swap in the HTTPS-ready config:
+
+```bash
+sudo cp /var/www/explainerstudio/deploy/nginx.conf /etc/nginx/sites-available/explainerstudio.org
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+`deploy/nginx.conf` (as opposed to `deploy/nginx-bootstrap.conf`, which
+`setup.sh` installs initially) includes both the HTTPS server block and an
+http→https redirect.
 
 ## 6. Switch the app to https:// and update Google
 

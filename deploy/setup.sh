@@ -58,8 +58,8 @@ echo "==> Setting ownership so the app (running as www-data) can write videos/au
 mkdir -p "$APP_DIR/videos/audio" "$APP_DIR/videos/generated" "$APP_DIR/videos/avatars"
 chown -R www-data:www-data "$APP_DIR"
 
-echo "==> Installing nginx site config"
-cp "$APP_DIR/deploy/nginx.conf" "/etc/nginx/sites-available/$DOMAIN"
+echo "==> Installing nginx site config (HTTP-only bootstrap — no certificate yet)"
+cp "$APP_DIR/deploy/nginx-bootstrap.conf" "/etc/nginx/sites-available/$DOMAIN"
 ln -sf "/etc/nginx/sites-available/$DOMAIN" "/etc/nginx/sites-enabled/$DOMAIN"
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
@@ -82,8 +82,8 @@ Setup complete. Two things left before the app is actually live:
    Then:  sudo chown www-data:www-data /var/www/explainerstudio/.env
 
 2. Point your domain at this server (DNS A record -> this Droplet's
-   IP), then once DNS has propagated, get HTTPS:
-     sudo certbot --nginx -d explainerstudio.org -d www.explainerstudio.org
+   IP), then once DNS has propagated, get HTTPS — see deploy/DEPLOY.md
+   step 5 for the full certbot + config-swap steps.
 
 Once .env exists, start the backend:
      sudo systemctl start explainer-backend
