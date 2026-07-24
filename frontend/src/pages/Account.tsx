@@ -139,6 +139,7 @@ function ProfileTab() {
 
 // --- 2. Security ---
 function SecurityTab() {
+  const { user, refresh } = useAuth();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -161,7 +162,8 @@ function SecurityTab() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setMessage('Password updated.');
+      setMessage(user?.hasPassword ? 'Password updated.' : 'Password set — you can now also sign in with email and password.');
+      await refresh();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Failed to update password');
     } finally {
@@ -181,11 +183,19 @@ function SecurityTab() {
 
   return (
     <>
-      <SectionCard title="Password">
-        <label>
-          Current Password
-          <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} disabled={saving} />
-        </label>
+      <SectionCard title={user?.hasPassword ? 'Password' : 'Set a Password'}>
+        {!user?.hasPassword && (
+          <p className="field-hint" style={{ marginBottom: 16 }}>
+            You signed up with Google, so there's no password yet. Set one if you'd also like to sign
+            in with email and password.
+          </p>
+        )}
+        {user?.hasPassword && (
+          <label>
+            Current Password
+            <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} disabled={saving} />
+          </label>
+        )}
         <label>
           New Password
           <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={saving} />
@@ -196,7 +206,7 @@ function SecurityTab() {
         </label>
         {message && <div className="settings-message">{message}</div>}
         <button type="button" className="pill-button" onClick={handlePasswordChange} disabled={saving}>
-          {saving ? 'Updating…' : 'Update Password'}
+          {saving ? 'Saving…' : user?.hasPassword ? 'Update Password' : 'Set Password'}
         </button>
       </SectionCard>
 
@@ -238,7 +248,18 @@ function SecurityTab() {
       </SectionCard>
 
       <SectionCard title="Connected Accounts">
-        {['Google', 'Microsoft', 'GitHub'].map((provider) => (
+        <div className="toggle-row">
+          <div className="toggle-row__label">
+            Google
+            {user?.hasGoogle && <span className="session-row__badge" style={{ marginLeft: 8 }}>Connected</span>}
+          </div>
+          {!user?.hasGoogle && (
+            <a href="/api/auth/google" className="toggle-row__connect">
+              Connect
+            </a>
+          )}
+        </div>
+        {['Microsoft', 'GitHub'].map((provider) => (
           <div className="toggle-row" key={provider}>
             <div className="toggle-row__label">{provider}</div>
             <button type="button" disabled title={`${provider} SSO requires OAuth credentials to be configured`}>
@@ -436,7 +457,7 @@ const COMMON_TIMEZONES = [
 
 // --- 5. Privacy ---
 function PrivacyTab() {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [password, setPassword] = useState('');
@@ -484,16 +505,25 @@ function PrivacyTab() {
           </button>
         ) : (
           <div className="delete-confirm">
-            <label>
-              Confirm your password to continue
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={deleting} />
-            </label>
+            {user?.hasPassword ? (
+              <label>
+                Confirm your password to continue
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={deleting} />
+              </label>
+            ) : (
+              <p className="field-hint">You're signed in with Google — confirm below to permanently delete your account.</p>
+            )}
             {error && <div className="error-text">{error}</div>}
             <div className="delete-confirm__actions">
               <button type="button" onClick={() => setConfirmOpen(false)} disabled={deleting}>
                 Cancel
               </button>
-              <button type="button" className="danger-button" onClick={handleDelete} disabled={deleting || !password}>
+              <button
+                type="button"
+                className="danger-button"
+                onClick={handleDelete}
+                disabled={deleting || (user?.hasPassword && !password)}
+              >
                 {deleting ? 'Deleting…' : 'Permanently Delete'}
               </button>
             </div>

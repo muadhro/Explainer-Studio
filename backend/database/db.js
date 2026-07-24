@@ -61,7 +61,8 @@ const ready = (async () => {
     CREATE TABLE IF NOT EXISTS users (
       "id" TEXT PRIMARY KEY,
       "email" TEXT NOT NULL UNIQUE,
-      "passwordHash" TEXT NOT NULL,
+      "passwordHash" TEXT,
+      "googleId" TEXT,
       "fullName" TEXT NOT NULL,
       "title" TEXT,
       "avatarPath" TEXT,
@@ -85,6 +86,11 @@ const ready = (async () => {
 
   // migration for databases created before PayPal billing existed
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "paypalSubscriptionId" TEXT`);
+
+  // migration for databases created before Google sign-in existed
+  await pool.query(`ALTER TABLE users ALTER COLUMN "passwordHash" DROP NOT NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "googleId" TEXT`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_googleId_idx ON users ("googleId") WHERE "googleId" IS NOT NULL`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sessions (
@@ -145,6 +151,11 @@ async function getUserByEmail(email) {
 
 async function getUserById(id) {
   const { rows } = await pool.query('SELECT * FROM users WHERE "id" = $1', [id]);
+  return rows[0] || null;
+}
+
+async function getUserByGoogleId(googleId) {
+  const { rows } = await pool.query('SELECT * FROM users WHERE "googleId" = $1', [googleId]);
   return rows[0] || null;
 }
 
@@ -273,6 +284,7 @@ module.exports = {
   createUser,
   getUserByEmail,
   getUserById,
+  getUserByGoogleId,
   updateUser,
   deleteUser,
   createSession,

@@ -1,11 +1,19 @@
-import { useState, FormEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState, FormEvent } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
+
+const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
+  google_not_configured: 'Google sign-in is not set up on this server yet.',
+  google_denied: 'Google sign-in was cancelled.',
+  google_auth_failed: 'Google sign-in failed. Please try again.',
+  google_no_email: "Your Google account doesn't have an accessible email address.",
+};
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -13,6 +21,15 @@ export default function Login() {
   const [showForgotNote, setShowForgotNote] = useState(false);
 
   const from = (location.state as { from?: string } | null)?.from || '/';
+
+  useEffect(() => {
+    const code = searchParams.get('error');
+    if (code) {
+      setError(GOOGLE_ERROR_MESSAGES[code] || 'Sign-in failed.');
+      setSearchParams({}, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -37,15 +54,10 @@ export default function Login() {
       <div className="auth-card">
         <h1>Sign in to Explainer Studio</h1>
 
-        <button
-          type="button"
-          className="sso-button"
-          disabled
-          title="Google sign-in requires OAuth credentials to be configured on the server"
-        >
+        <a href="/api/auth/google" className="sso-button">
           <GoogleIcon />
           Continue with Google
-        </button>
+        </a>
 
         <div className="auth-divider">
           <span>or</span>

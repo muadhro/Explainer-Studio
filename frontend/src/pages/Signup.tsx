@@ -46,15 +46,10 @@ export default function Signup() {
         <h1>Create your account</h1>
         <p className="auth-subtitle">Start free — 3 videos a month, no card required.</p>
 
-        <button
-          type="button"
-          className="sso-button"
-          disabled
-          title="Google sign-in requires OAuth credentials to be configured on the server"
-        >
+        <a href="/api/auth/google" className="sso-button">
           <GoogleIcon />
           Continue with Google
-        </button>
+        </a>
 
         <div className="auth-divider">
           <span>or</span>

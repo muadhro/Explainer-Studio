@@ -76,8 +76,8 @@ function requireAdmin(req, res, next) {
 
 function sanitizeUser(user) {
   if (!user) return null;
-  const { passwordHash, ...safe } = user;
-  return safe;
+  const { passwordHash, googleId, ...safe } = user;
+  return { ...safe, hasPassword: Boolean(passwordHash), hasGoogle: Boolean(googleId) };
 }
 
 module.exports = {

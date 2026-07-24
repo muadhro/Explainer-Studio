@@ -14,8 +14,10 @@ accounts, a 4-tier pricing page, and a full account settings area.
   auth is our own, so the backend connects with a normal Postgres connection string). Schema is
   created automatically on startup if it doesn't exist.
 - **Accounts:** email/password auth with bcrypt + server-side sessions (own implementation, no
-  third-party auth provider). Google/Microsoft/GitHub SSO buttons exist in the UI but are disabled
-  until you supply OAuth credentials.
+  third-party auth provider), plus real **Google Sign-In** (OAuth 2.0 authorization-code flow,
+  implemented directly — no Passport.js). Signing in with Google auto-links to an existing
+  email/password account with the same address, or creates a new one. Microsoft/GitHub buttons are
+  still visible but disabled until you add credentials for those.
 - **Billing:** 4 plan tiers with 1/3/6/12-month commitment discounts, enforced server-side (video
   quota, max quality). Paid-plan checkout is real, via **PayPal Subscriptions** — the buyer approves
   on PayPal, then the plan activates on return. Defaults to PayPal's Sandbox (`PAYPAL_MODE=sandbox`),
@@ -74,6 +76,13 @@ Optional:
   `backend/services/falService.js` targets a placeholder model endpoint (`fal-ai/video-generation`) —
   swap `FAL_MODEL_ENDPOINT` for the actual fal.ai model you want and adjust the request/response
   field names to match that model's schema. The default `RENDER_MODE=local` needs no fal.ai account.
+- **Google OAuth client ID/secret** — only needed for the "Continue with Google" button. Create one
+  at [console.cloud.google.com](https://console.cloud.google.com) → APIs & Services → Credentials →
+  Create Credentials → OAuth client ID → Web application, and add
+  `{BACKEND_URL}/api/auth/google/callback` (e.g. `http://localhost:5000/api/auth/google/callback`)
+  as an Authorized redirect URI. Without it, the button just stays inert.
+- **PayPal Client ID/Secret** — only needed for paid-plan checkout on the Pricing page. See
+  section 7 below for details; the app runs fine without it (Free plan and everything else works).
 
 Copy `.env.example` to `.env` in the project root and fill in your keys.
 
@@ -213,8 +222,17 @@ Quality: `720p`
 
 - **Sign up / Log in** at `/signup` and `/login`. Sessions are stored server-side (a `sessions`
   table) and referenced by an httpOnly cookie — no JWT, no external auth provider needed for
-  email/password. Google/Microsoft/GitHub buttons are visible but disabled until you add real
-  OAuth app credentials.
+  email/password.
+  - **"Continue with Google"** is fully wired up: `GET /api/auth/google` redirects to Google with a
+    CSRF `state` value in a short-lived cookie, `GET /api/auth/google/callback` verifies it,
+    exchanges the code for tokens, fetches the profile, and either links to an existing account by
+    email or creates a new one (`passwordHash` is nullable — Google-only accounts have none).
+  - Signing in with Google for the first time on an email that already has a password account links
+    the two automatically, rather than creating a duplicate.
+  - Account Settings adapts for password-less accounts: the Security tab shows "Set a Password"
+    instead of requiring a current one, and Account Deletion skips the password-confirmation step
+    (the active session already proves who's asking).
+  - Microsoft/GitHub buttons are still visible but disabled until you add credentials for those.
 - **Pricing** (`/pricing`) has 4 tiers — Free, Starter ($25), Creator ($65, marked Popular), Studio
   ($149) — defined in `backend/config/plans.js`. A 1/3/6/12-month toggle applies 0/10/15/20%
   monthly-equivalent discounts. Selecting the **Free** plan calls `POST /api/account/billing/plan`,
@@ -248,8 +266,10 @@ Quality: `720p`
 - `falService.js` assumes a generic fal.ai queue-based model API (submit → poll `status_url` → fetch
   `response_url`). Update the model endpoint and payload shape to match the specific fal.ai model you
   choose for animation generation.
-- OAuth SSO (Google/Microsoft/GitHub) is not connected — the buttons are visible but disabled until
-  you add real OAuth app credentials.
+- Google Sign-In is connected; Microsoft/GitHub are not — those two buttons stay visible but disabled
+  until you add credentials for them.
+- Disconnecting a linked Google account isn't implemented (only connecting) — not usually needed
+  since Google sign-in coexists with a password if the user sets one in Account Settings.
 - PayPal webhooks aren't wired up yet (needs a public URL — see Accounts section above), so renewal
   and cancellation events from PayPal don't automatically sync back to this app yet.
 - `/terms` and `/privacy` are placeholder pages. Replace their content before launching to real

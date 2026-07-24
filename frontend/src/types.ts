@@ -15,6 +15,8 @@ export interface User {
   notifyProduct: number;
   notifyMarketing: number;
   notifyBilling: number;
+  hasPassword: boolean;
+  hasGoogle: boolean;
   createdAt: string;
 }
 

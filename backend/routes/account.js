@@ -54,15 +54,22 @@ router.post(
   '/password',
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body || {};
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: 'Current and new password are required' });
+    if (!newPassword) {
+      return res.status(400).json({ message: 'New password is required' });
     }
     if (String(newPassword).length < 8) {
       return res.status(400).json({ message: 'New password must be at least 8 characters' });
     }
 
-    const valid = await auth.verifyPassword(currentPassword, req.user.passwordHash);
-    if (!valid) return res.status(401).json({ message: 'Current password is incorrect' });
+    // Google-only accounts have no existing password to verify — this call
+    // sets their first one instead of changing an existing one.
+    if (req.user.passwordHash) {
+      if (!currentPassword) {
+        return res.status(400).json({ message: 'Current password is required' });
+      }
+      const valid = await auth.verifyPassword(currentPassword, req.user.passwordHash);
+      if (!valid) return res.status(401).json({ message: 'Current password is incorrect' });
+    }
 
     const passwordHash = await auth.hashPassword(newPassword);
     await db.updateUser(req.user.id, { passwordHash });
@@ -262,19 +269,26 @@ router.post(
   '/delete',
   asyncHandler(async (req, res) => {
     const { password } = req.body || {};
-    if (!password) return res.status(400).json({ message: 'Password confirmation is required' });
 
-    const valid = await auth.verifyPassword(password, req.user.passwordHash);
-    if (!valid) return res.status(401).json({ message: 'Incorrect password' });
+    // Password confirmation only applies to accounts that have one — a
+    // Google-only account has no password to check, the active session
+    // already proves who's asking.
+    if (req.user.passwordHash) {
+      if (!password) return res.status(400).json({ message: 'Password confirmation is required' });
+      const valid = await auth.verifyPassword(password, req.user.passwordHash);
+      if (!valid) return res.status(401).json({ message: 'Incorrect password' });
+    }
 
     for (const video of await db.getVideosForUser(req.user.id)) {
       fileService.deleteIfExists(video.videoPath);
       fileService.deleteIfExists(video.audioPath);
     }
-    const avatarPath = req.user.avatarPath
-      ? path.join(db.STORAGE_PATH, req.user.avatarPath.replace(/^\/avatars\//, 'avatars/'))
-      : null;
-    if (avatarPath) fileService.deleteIfExists(avatarPath);
+    // only locally-uploaded avatars (served from /avatars/...) have a file to
+    // remove — Google profile pictures are hosted on Google's own servers
+    if (req.user.avatarPath && req.user.avatarPath.startsWith('/avatars/')) {
+      const avatarPath = path.join(db.STORAGE_PATH, req.user.avatarPath.replace(/^\/avatars\//, 'avatars/'));
+      fileService.deleteIfExists(avatarPath);
+    }
 
     await db.deleteUser(req.user.id);
     auth.clearSessionCookie(res);
