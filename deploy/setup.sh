@@ -18,9 +18,16 @@ if [ -z "$REPO_URL" ]; then
   exit 1
 fi
 
+# Fully non-interactive apt: DigitalOcean's droplet images pre-modify
+# /etc/ssh/sshd_config, which otherwise makes `apt upgrade` stop and prompt
+# to merge config files. --force-confdef/--force-confold tells dpkg to keep
+# the existing (DigitalOcean-tuned) config automatically instead of asking.
+export DEBIAN_FRONTEND=noninteractive
+APT_OPTS=(-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
+
 echo "==> Updating packages"
 apt-get update -y
-apt-get upgrade -y
+apt-get upgrade -y "${APT_OPTS[@]}"
 
 echo "==> Installing Node.js 22 LTS"
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
