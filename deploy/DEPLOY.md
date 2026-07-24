@@ -1,6 +1,6 @@
-# Deploying to the Droplet (explainerstudio.com)
+# Deploying to the Droplet (explainerstudio.org)
 
-One-time setup to get the app live at `https://explainerstudio.com` on the
+One-time setup to get the app live at `https://explainerstudio.org` on the
 DigitalOcean Droplet at `159.89.162.123`.
 
 ## 1. Point DNS at the Droplet
@@ -59,13 +59,13 @@ sudo systemctl start explainer-backend
 sudo systemctl status explainer-backend   # should show "active (running)"
 ```
 
-At this point `http://explainerstudio.com` should load the app (once DNS
+At this point `http://explainerstudio.org` should load the app (once DNS
 has propagated), just without HTTPS yet.
 
 ## 5. Get HTTPS (once DNS has propagated)
 
 ```bash
-sudo certbot --nginx -d explainerstudio.com -d www.explainerstudio.com
+sudo certbot --nginx -d explainerstudio.org -d www.explainerstudio.org
 ```
 
 Certbot edits the nginx config in place to add the SSL server block and an
@@ -77,7 +77,7 @@ http→https redirect, and sets up auto-renewal.
 sudo nano /var/www/explainerstudio/.env
 ```
 
-Change both `FRONTEND_URL` and `BACKEND_URL` to `https://explainerstudio.com`,
+Change both `FRONTEND_URL` and `BACKEND_URL` to `https://explainerstudio.org`,
 then:
 
 ```bash
@@ -86,7 +86,7 @@ sudo systemctl restart explainer-backend
 
 Also update **Google Cloud Console → APIs & Services → Credentials** → your
 OAuth client → Authorized redirect URIs: add
-`https://explainerstudio.com/api/auth/google/callback` (keep the localhost
+`https://explainerstudio.org/api/auth/google/callback` (keep the localhost
 one too if you still want Google sign-in to work in local dev).
 
 ## Redeploying after code changes

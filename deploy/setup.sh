@@ -11,7 +11,7 @@ set -euo pipefail
 
 REPO_URL="${1:-}"
 APP_DIR=/var/www/explainerstudio
-DOMAIN=explainerstudio.com
+DOMAIN=explainerstudio.org
 
 if [ -z "$REPO_URL" ]; then
   echo "Usage: sudo bash deploy/setup.sh <git-repo-url>"
@@ -83,7 +83,7 @@ Setup complete. Two things left before the app is actually live:
 
 2. Point your domain at this server (DNS A record -> this Droplet's
    IP), then once DNS has propagated, get HTTPS:
-     sudo certbot --nginx -d explainerstudio.com -d www.explainerstudio.com
+     sudo certbot --nginx -d explainerstudio.org -d www.explainerstudio.org
 
 Once .env exists, start the backend:
      sudo systemctl start explainer-backend
