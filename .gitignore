@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+.env
+videos/audio/*
+videos/generated/*
+!videos/audio/.gitkeep
+!videos/generated/.gitkeep
+videos/db.sqlite
+videos/db.sqlite-shm
+videos/db.sqlite-wal
+*.log
+.DS_Store
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+.claude/settings.local.json
