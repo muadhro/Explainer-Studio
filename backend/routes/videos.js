@@ -46,21 +46,26 @@ router.post(
       return res.status(400).json({ message: `quality must be one of: ${VALID_QUALITIES.join(', ')}` });
     }
 
-    const plan = getPlan(req.user.plan);
-    const used = await db.countVideosThisMonthForUser(req.user.id);
-    if (used >= plan.videosPerMonth) {
-      return res.status(402).json({
-        message: `You've used all ${plan.videosPerMonth} videos on the ${plan.name} plan this month. Upgrade for more.`,
-      });
-    }
-    if (quality === '1080p' && plan.maxQuality === '720p') {
-      return res.status(402).json({ message: '1080p rendering requires the Starter plan or higher.' });
-    }
-    const charsUsed = await db.sumNarrationCharsThisMonthForUser(req.user.id);
-    if (charsUsed >= plan.monthlyCharacterBudget) {
-      return res.status(402).json({
-        message: `You've used your ${plan.monthlyCharacterBudget.toLocaleString()}-character narration budget on the ${plan.name} plan this month. Upgrade for more.`,
-      });
+    // admin accounts are exempt from every plan-based restriction (video
+    // count, quality, narration-character budget) — plan limits exist to
+    // manage cost/abuse from customer accounts, not the operator running the app
+    if (req.user.role !== 'admin') {
+      const plan = getPlan(req.user.plan);
+      const used = await db.countVideosThisMonthForUser(req.user.id);
+      if (used >= plan.videosPerMonth) {
+        return res.status(402).json({
+          message: `You've used all ${plan.videosPerMonth} videos on the ${plan.name} plan this month. Upgrade for more.`,
+        });
+      }
+      if (quality === '1080p' && plan.maxQuality === '720p') {
+        return res.status(402).json({ message: '1080p rendering requires the Starter plan or higher.' });
+      }
+      const charsUsed = await db.sumNarrationCharsThisMonthForUser(req.user.id);
+      if (charsUsed >= plan.monthlyCharacterBudget) {
+        return res.status(402).json({
+          message: `You've used your ${plan.monthlyCharacterBudget.toLocaleString()}-character narration budget on the ${plan.name} plan this month. Upgrade for more.`,
+        });
+      }
     }
 
     const video = await db.createVideo({

@@ -315,8 +315,9 @@ export default function Pricing() {
 
       {user && billing && (
         <p className="pricing-usage-note">
-          You've used {billing.usage.videosUsed} of {billing.usage.videosLimit} videos this month on the{' '}
-          {billing.plan.name} plan.
+          {billing.usage.videosLimit === null
+            ? `You've generated ${billing.usage.videosUsed} videos this month — unlimited as an admin.`
+            : `You've used ${billing.usage.videosUsed} of ${billing.usage.videosLimit} videos this month on the ${billing.plan.name} plan.`}
         </p>
       )}
     </div>

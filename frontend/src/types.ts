@@ -71,7 +71,7 @@ export interface BillingInfo {
   plan: Plan & { cycle: number; price: { monthly: number; total: number } };
   periodStart: string;
   expiresAt: string | null;
-  usage: { videosUsed: number; videosLimit: number; charsUsed: number; charsLimit: number };
+  usage: { videosUsed: number; videosLimit: number | null; charsUsed: number; charsLimit: number | null };
   invoices: unknown[];
   plans: Plan[];
   billingCycles: BillingCycleOption[];

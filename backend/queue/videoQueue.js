@@ -84,7 +84,7 @@ async function processVideo(videoId) {
   // for this specific video isn't known until the script exists.
   if (video.userId) {
     const user = await getUserById(video.userId);
-    if (user) {
+    if (user && user.role !== 'admin') {
       const plan = getPlan(user.plan);
       const charsUsedSoFar = await sumNarrationCharsThisMonthForUser(video.userId);
       if (charsUsedSoFar + fullNarration.length > plan.monthlyCharacterBudget) {

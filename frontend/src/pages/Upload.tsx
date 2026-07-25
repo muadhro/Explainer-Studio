@@ -16,7 +16,7 @@ const QUALITIES: VideoQuality[] = ['720p', '1080p'];
 export default function Upload() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const quality1080Locked = user?.plan === 'free';
+  const quality1080Locked = user?.role !== 'admin' && user?.plan === 'free';
   const [title, setTitle] = useState('');
   const [courseContent, setCourseContent] = useState('');
   const [animationStyle, setAnimationStyle] = useState<AnimationStyle>(ANIMATION_STYLES[0]);

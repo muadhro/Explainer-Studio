@@ -84,31 +84,34 @@ export default function Dashboard() {
             <div>
               <div className="plan-summary__name">{billing.plan.name} Plan — Monthly Usage</div>
               <div className="field-hint">
-                {billing.usage.videosUsed} of {billing.usage.videosLimit} videos generated
-                {' · '}
-                {Math.max(0, billing.usage.videosLimit - billing.usage.videosUsed)} remaining
+                {billing.usage.videosLimit === null
+                  ? `${billing.usage.videosUsed} videos generated · Unlimited (admin)`
+                  : `${billing.usage.videosUsed} of ${billing.usage.videosLimit} videos generated · ${Math.max(0, billing.usage.videosLimit - billing.usage.videosUsed)} remaining`}
               </div>
             </div>
           </div>
-          <div className="usage-bar">
-            <div
-              className="usage-bar__fill"
-              style={{ width: `${Math.min(100, Math.round((billing.usage.videosUsed / billing.usage.videosLimit) * 100))}%` }}
-            />
-          </div>
+          {billing.usage.videosLimit !== null && (
+            <div className="usage-bar">
+              <div
+                className="usage-bar__fill"
+                style={{ width: `${Math.min(100, Math.round((billing.usage.videosUsed / billing.usage.videosLimit) * 100))}%` }}
+              />
+            </div>
+          )}
 
           <p className="field-hint" style={{ marginTop: 12 }}>
-            {billing.usage.charsUsed.toLocaleString()} of {billing.usage.charsLimit.toLocaleString()} narration
-            characters used
-            {' · '}
-            {Math.max(0, billing.usage.charsLimit - billing.usage.charsUsed).toLocaleString()} remaining
+            {billing.usage.charsLimit === null
+              ? `${billing.usage.charsUsed.toLocaleString()} narration characters used · Unlimited (admin)`
+              : `${billing.usage.charsUsed.toLocaleString()} of ${billing.usage.charsLimit.toLocaleString()} narration characters used · ${Math.max(0, billing.usage.charsLimit - billing.usage.charsUsed).toLocaleString()} remaining`}
           </p>
-          <div className="usage-bar">
-            <div
-              className="usage-bar__fill"
-              style={{ width: `${Math.min(100, Math.round((billing.usage.charsUsed / billing.usage.charsLimit) * 100))}%` }}
-            />
-          </div>
+          {billing.usage.charsLimit !== null && (
+            <div className="usage-bar">
+              <div
+                className="usage-bar__fill"
+                style={{ width: `${Math.min(100, Math.round((billing.usage.charsUsed / billing.usage.charsLimit) * 100))}%` }}
+              />
+            </div>
+          )}
         </div>
       )}
 

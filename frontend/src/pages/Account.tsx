@@ -285,8 +285,14 @@ function BillingTab() {
 
   if (!billing) return <SectionCard title="Current Plan"><p>Loading…</p></SectionCard>;
 
-  const pct = Math.min(100, Math.round((billing.usage.videosUsed / billing.usage.videosLimit) * 100));
-  const charsPct = Math.min(100, Math.round((billing.usage.charsUsed / billing.usage.charsLimit) * 100));
+  const pct =
+    billing.usage.videosLimit === null
+      ? 0
+      : Math.min(100, Math.round((billing.usage.videosUsed / billing.usage.videosLimit) * 100));
+  const charsPct =
+    billing.usage.charsLimit === null
+      ? 0
+      : Math.min(100, Math.round((billing.usage.charsUsed / billing.usage.charsLimit) * 100));
 
   async function handleAutoRenewChange(value: boolean) {
     setSavingRenew(true);
@@ -321,20 +327,34 @@ function BillingTab() {
           </button>
         </div>
 
-        <div className="usage-bar">
-          <div className="usage-bar__fill" style={{ width: `${pct}%` }} />
-        </div>
-        <p className="field-hint">
-          {billing.usage.videosUsed} of {billing.usage.videosLimit} videos used this month
-        </p>
+        {billing.usage.videosLimit === null ? (
+          <p className="field-hint">{billing.usage.videosUsed} videos generated this month · Unlimited (admin)</p>
+        ) : (
+          <>
+            <div className="usage-bar">
+              <div className="usage-bar__fill" style={{ width: `${pct}%` }} />
+            </div>
+            <p className="field-hint">
+              {billing.usage.videosUsed} of {billing.usage.videosLimit} videos used this month
+            </p>
+          </>
+        )}
 
-        <div className="usage-bar">
-          <div className="usage-bar__fill" style={{ width: `${charsPct}%` }} />
-        </div>
-        <p className="field-hint">
-          {billing.usage.charsUsed.toLocaleString()} of {billing.usage.charsLimit.toLocaleString()} narration
-          characters used this month
-        </p>
+        {billing.usage.charsLimit === null ? (
+          <p className="field-hint">
+            {billing.usage.charsUsed.toLocaleString()} narration characters used this month · Unlimited (admin)
+          </p>
+        ) : (
+          <>
+            <div className="usage-bar">
+              <div className="usage-bar__fill" style={{ width: `${charsPct}%` }} />
+            </div>
+            <p className="field-hint">
+              {billing.usage.charsUsed.toLocaleString()} of {billing.usage.charsLimit.toLocaleString()} narration
+              characters used this month
+            </p>
+          </>
+        )}
       </SectionCard>
 
       {billing.plan.id !== 'free' && (

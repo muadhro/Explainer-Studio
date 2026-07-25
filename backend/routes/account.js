@@ -160,9 +160,9 @@ router.get(
       expiresAt,
       usage: {
         videosUsed,
-        videosLimit: plan.videosPerMonth,
+        videosLimit: user.role === 'admin' ? null : plan.videosPerMonth,
         charsUsed,
-        charsLimit: plan.monthlyCharacterBudget,
+        charsLimit: user.role === 'admin' ? null : plan.monthlyCharacterBudget,
       },
       // no real payment processor is connected — this is a placeholder history
       invoices: [],

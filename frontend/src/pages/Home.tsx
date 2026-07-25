@@ -69,15 +69,21 @@ function SignedInHome() {
           </div>
 
           <div className="subscription-card__usage">
-            <div className="usage-bar">
-              <div
-                className="usage-bar__fill"
-                style={{ width: `${Math.min(100, Math.round((billing.usage.videosUsed / billing.usage.videosLimit) * 100))}%` }}
-              />
-            </div>
-            <p className="field-hint">
-              {billing.usage.videosUsed} of {billing.usage.videosLimit} videos used this month
-            </p>
+            {billing.usage.videosLimit === null ? (
+              <p className="field-hint">{billing.usage.videosUsed} videos generated this month · Unlimited (admin)</p>
+            ) : (
+              <>
+                <div className="usage-bar">
+                  <div
+                    className="usage-bar__fill"
+                    style={{ width: `${Math.min(100, Math.round((billing.usage.videosUsed / billing.usage.videosLimit) * 100))}%` }}
+                  />
+                </div>
+                <p className="field-hint">
+                  {billing.usage.videosUsed} of {billing.usage.videosLimit} videos used this month
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}
