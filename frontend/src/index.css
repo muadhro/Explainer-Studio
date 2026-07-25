@@ -677,12 +677,16 @@ button[type='submit']:disabled {
 
 /* --- Nav auth buttons --- */
 .nav-button {
+  display: inline-block;
   text-decoration: none;
   font-size: 13px;
   font-weight: 600;
   padding: 7px 16px;
   border-radius: 980px;
   transition: all 0.15s ease;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .nav-button--ghost {

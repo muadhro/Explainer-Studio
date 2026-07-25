@@ -267,7 +267,7 @@ export default function Admin() {
             {manageMessage && <div className="settings-message">{manageMessage}</div>}
 
             <div className="delete-confirm__actions">
-              <button type="button" onClick={() => setManageTarget(null)}>
+              <button type="button" className="nav-button nav-button--ghost" onClick={() => setManageTarget(null)}>
                 Close
               </button>
             </div>
@@ -300,7 +300,7 @@ export default function Admin() {
                     <td>
                       {u.id !== me?.id && (
                         <div className="admin-row-actions">
-                          <button type="button" onClick={() => openManage(u)}>
+                          <button type="button" className="nav-button nav-button--ghost" onClick={() => openManage(u)}>
                             Manage
                           </button>
                           <button
