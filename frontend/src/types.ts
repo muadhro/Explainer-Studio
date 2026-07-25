@@ -111,6 +111,7 @@ export interface CreateVideoRequest {
   animationStyle: AnimationStyle;
   quality: VideoQuality;
   voiceId?: string;
+  targetDurationMinutes?: number;
 }
 
 export interface CreateVideoResponse {

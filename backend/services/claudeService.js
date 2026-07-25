@@ -3,13 +3,21 @@ const fetch = require('node-fetch');
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const CLAUDE_MODEL = 'claude-sonnet-5';
 
-function buildPrompt(courseTitle, courseContent, animationStyle) {
+function buildPrompt(courseTitle, courseContent, animationStyle, targetDurationMinutes) {
+  const targetSeconds = targetDurationMinutes ? targetDurationMinutes * 60 : null;
+  const targetWords = targetSeconds ? Math.round(targetSeconds * 2.5) : null;
+  // ~12s/scene is the natural pace elsewhere in this prompt (2.5 words/sec,
+  // typical scene narration) — scale scene count to the requested runtime
+  // instead of leaving it at the flat default of 10 regardless of length.
+  const maxScenes = targetSeconds ? Math.max(3, Math.min(24, Math.round(targetSeconds / 12))) : 10;
+
   return `You are a scriptwriter for animated explainer videos. Convert the following course content into a scene-by-scene video script for a "${animationStyle}" style animation.
 
 Course Title: ${courseTitle}
 
 Course Content:
 ${courseContent}
+${targetSeconds ? `\nTarget video length: approximately ${targetDurationMinutes} minute${targetDurationMinutes === 1 ? '' : 's'} (~${targetSeconds} seconds, ~${targetWords} words of narration total across all scenes). Pace scene count and narration length to hit this target — pad with more detail/examples from the content if it's short of the target, or condense/merge scenes if the content would otherwise run long.\n` : ''}
 
 Break the content into logical scenes (one per major topic/heading/paragraph). Each scene is a clean presentation-style slide with icons, labels, and diagrams — like a professional explainer video. Respond with ONLY valid JSON matching this exact shape, no markdown fences, no commentary:
 
@@ -47,7 +55,7 @@ Layout guide (pick per scene):
 - "flow": a step-by-step process, 1 section with 2-5 items shown left-to-right with numbered arrows.
 
 Rules:
-- Use at most 10 scenes; merge minor topics together rather than exceeding 10.
+- Use at most ${maxScenes} scenes; merge minor topics together rather than exceeding that.
 - sceneType is "slide" for almost every scene. Use "photo" ONLY for an intro or outro scene where a real photograph helps; then fill imageKeywords (concrete photographable subject) and iconKeyword instead of slide, and put a headline in textOverlays[0].
 - slide.title: max 3 words, punchy. slide.subtitle: max 5 words.
 - item.icon: 1-3 generic words that will match a tech icon library (e.g. "server", "laptop", "globe network", "email", "shield lock", "database"). item.label: max 20 chars. item.sublabel: optional detail, max 24 chars.
@@ -67,7 +75,7 @@ function extractJson(text) {
   return JSON.parse(raw.slice(start, end + 1));
 }
 
-async function generateScript(courseTitle, courseContent, animationStyle) {
+async function generateScript(courseTitle, courseContent, animationStyle, targetDurationMinutes) {
   const apiKey = process.env.CLAUDE_API_KEY;
   if (!apiKey) {
     throw new Error('CLAUDE_API_KEY is not set');
@@ -86,7 +94,7 @@ async function generateScript(courseTitle, courseContent, animationStyle) {
       messages: [
         {
           role: 'user',
-          content: buildPrompt(courseTitle, courseContent, animationStyle),
+          content: buildPrompt(courseTitle, courseContent, animationStyle, targetDurationMinutes),
         },
       ],
     }),

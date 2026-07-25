@@ -12,6 +12,12 @@ const ANIMATION_STYLES: AnimationStyle[] = [
   'Flat Design 2D',
 ];
 const QUALITIES: VideoQuality[] = ['720p', '1080p'];
+const DURATIONS = [
+  { value: 1, label: '~1 minute', chars: 900 },
+  { value: 2, label: '~2 minutes', chars: 1800 },
+  { value: 3, label: '~3 minutes', chars: 2700 },
+  { value: 5, label: '~5 minutes', chars: 4500 },
+];
 
 export default function Upload() {
   const { user } = useAuth();
@@ -21,6 +27,7 @@ export default function Upload() {
   const [courseContent, setCourseContent] = useState('');
   const [animationStyle, setAnimationStyle] = useState<AnimationStyle>(ANIMATION_STYLES[0]);
   const [quality, setQuality] = useState<VideoQuality>('720p');
+  const [targetDurationMinutes, setTargetDurationMinutes] = useState(2);
   const [voices, setVoices] = useState<Voice[]>([]);
   const [voiceId, setVoiceId] = useState('');
   const [playing, setPlaying] = useState(false);
@@ -93,7 +100,14 @@ export default function Upload() {
 
     setSubmitting(true);
     try {
-      await createVideo({ title, courseContent, animationStyle, quality, voiceId: voiceId || undefined });
+      await createVideo({
+        title,
+        courseContent,
+        animationStyle,
+        quality,
+        voiceId: voiceId || undefined,
+        targetDurationMinutes,
+      });
       navigate('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit video job');
@@ -138,6 +152,22 @@ export default function Upload() {
               groups={[{ options: ANIMATION_STYLES.map((s) => ({ value: s, label: s })) }]}
               value={animationStyle}
               onChange={(v) => setAnimationStyle(v as AnimationStyle)}
+              disabled={submitting}
+            />
+          </label>
+
+          <label>
+            Video Length
+            <AppleSelect
+              groups={[{
+                options: DURATIONS.map((d) => ({
+                  value: String(d.value),
+                  label: d.label,
+                  detail: `~${d.chars.toLocaleString()} characters`,
+                })),
+              }]}
+              value={String(targetDurationMinutes)}
+              onChange={(v) => setTargetDurationMinutes(Number(v))}
               disabled={submitting}
             />
           </label>

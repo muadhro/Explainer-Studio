@@ -104,6 +104,9 @@ const ready = (async () => {
   // migration for databases created before per-plan narration character budgets existed
   await pool.query(`ALTER TABLE videos ADD COLUMN IF NOT EXISTS "narrationChars" INTEGER`);
 
+  // migration for databases created before videos had a selectable target length
+  await pool.query(`ALTER TABLE videos ADD COLUMN IF NOT EXISTS "targetDurationMinutes" INTEGER`);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS password_resets (
       "token" TEXT PRIMARY KEY,

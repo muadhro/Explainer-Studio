@@ -12,6 +12,7 @@ const router = express.Router();
 
 const VALID_STYLES = ['Animated Explainer', 'Kinetic Typography', 'Motion Graphics', 'Flat Design 2D'];
 const VALID_QUALITIES = ['720p', '1080p'];
+const VALID_DURATIONS = [1, 2, 3, 5];
 
 router.use(auth.attachUser, auth.requireAuth);
 
@@ -32,7 +33,7 @@ async function loadOwnedVideo(req, res) {
 router.post(
   '/',
   asyncHandler(async (req, res) => {
-    const { title, courseContent, animationStyle, quality, voiceId } = req.body || {};
+    const { title, courseContent, animationStyle, quality, voiceId, targetDurationMinutes } = req.body || {};
 
     if (!title || !courseContent || !animationStyle || !quality) {
       return res.status(400).json({
@@ -44,6 +45,9 @@ router.post(
     }
     if (!VALID_QUALITIES.includes(quality)) {
       return res.status(400).json({ message: `quality must be one of: ${VALID_QUALITIES.join(', ')}` });
+    }
+    if (targetDurationMinutes !== undefined && !VALID_DURATIONS.includes(Number(targetDurationMinutes))) {
+      return res.status(400).json({ message: `targetDurationMinutes must be one of: ${VALID_DURATIONS.join(', ')}` });
     }
 
     // admin accounts are exempt from every plan-based restriction (video
@@ -75,6 +79,7 @@ router.post(
       animationStyle,
       quality,
       voiceId: voiceId || null,
+      targetDurationMinutes: targetDurationMinutes ? Number(targetDurationMinutes) : null,
       userId: req.user.id,
       status: 'queued',
       progress: 0,

@@ -73,7 +73,7 @@ async function processVideo(videoId) {
   await updateVideo(videoId, { status: 'processing', progress: 5 });
 
   // Step 1: scene script via Claude
-  const script = await generateScript(video.title, video.courseContent, video.animationStyle);
+  const script = await generateScript(video.title, video.courseContent, video.animationStyle, video.targetDurationMinutes);
   await updateVideo(videoId, { progress: 15 });
 
   // Step 2: voiceover via ElevenLabs
