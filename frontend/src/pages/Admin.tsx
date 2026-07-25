@@ -278,6 +278,7 @@ export default function Admin() {
             <table className="video-table admin-table">
               <thead>
                 <tr>
+                  <th></th>
                   <th>Name</th>
                   <th>Email</th>
                   <th>Subscription ID</th>
@@ -288,12 +289,28 @@ export default function Admin() {
                   <th>Sign-in</th>
                   <th>Role</th>
                   <th>Joined</th>
-                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {users.map((u) => (
                   <tr key={u.id}>
+                    <td>
+                      {u.id !== me?.id && (
+                        <>
+                          <button type="button" onClick={() => openManage(u)} style={{ marginRight: 8 }}>
+                            Manage
+                          </button>
+                          <button
+                            type="button"
+                            className="danger-link"
+                            onClick={() => handleDeleteUser(u.id)}
+                            disabled={deletingId === u.id}
+                          >
+                            {deletingId === u.id ? 'Removing…' : 'Remove'}
+                          </button>
+                        </>
+                      )}
+                    </td>
                     <td>
                       <div className="video-title">{u.fullName}</div>
                       {u.title && <div className="video-meta">{u.title}</div>}
@@ -316,23 +333,6 @@ export default function Admin() {
                     </td>
                     <td>{u.role === 'admin' && <span className="session-row__badge">Admin</span>}</td>
                     <td>{formatDate(u.createdAt)}</td>
-                    <td>
-                      {u.id !== me?.id && (
-                        <>
-                          <button type="button" onClick={() => openManage(u)} style={{ marginRight: 8 }}>
-                            Manage
-                          </button>
-                          <button
-                            type="button"
-                            className="danger-link"
-                            onClick={() => handleDeleteUser(u.id)}
-                            disabled={deletingId === u.id}
-                          >
-                            {deletingId === u.id ? 'Removing…' : 'Remove'}
-                          </button>
-                        </>
-                      )}
-                    </td>
                   </tr>
                 ))}
               </tbody>
