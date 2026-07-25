@@ -40,10 +40,23 @@ function updateProgress(videoId, progress) {
  * Called on startup to re-enqueue them from scratch.
  */
 async function recoverPendingJobs() {
-  const { getAllVideos, updateVideo: dbUpdateVideo } = require('../database/db');
+  const { getAllVideos, getUserById, updateVideo: dbUpdateVideo, deleteVideo } = require('../database/db');
   const all = await getAllVideos();
   const pending = all.filter((v) => v.status === 'queued' || v.status === 'processing');
   for (const video of pending) {
+    // a video whose owner no longer exists (deleted account, or a stray row
+    // from manual DB cleanup that didn't cascade) has nowhere to deliver a
+    // result to — never spend real API calls re-processing it
+    if (video.userId) {
+      const owner = await getUserById(video.userId);
+      if (!owner) {
+        console.warn(`[queue] discarding orphaned video with no owner: ${video.title} (${video.id})`);
+        fileService.deleteIfExists(video.videoPath);
+        fileService.deleteIfExists(video.audioPath);
+        await deleteVideo(video.id).catch((err) => console.error(`[queue] failed to delete orphaned video ${video.id}:`, err.message));
+        continue;
+      }
+    }
     console.log(`[queue] recovering interrupted job: ${video.title} (${video.id})`);
     await dbUpdateVideo(video.id, { status: 'queued', progress: 0 });
     enqueue(video.id);
