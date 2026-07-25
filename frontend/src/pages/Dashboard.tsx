@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { listVideos, deleteVideo, fetchBilling } from '../api';
+import { listVideos, deleteVideo, retryVideo, fetchBilling } from '../api';
 import type { Video, VideoStatus, BillingInfo } from '../types';
 import VideoCard from '../components/VideoCard';
 
@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
 
   const fetchVideos = useCallback(async () => {
     try {
@@ -47,6 +48,19 @@ export default function Dashboard() {
       setVideos((prev) => prev.filter((v) => v.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete video');
+    }
+  }
+
+  async function handleRetry(id: string) {
+    setRetryingId(id);
+    setError(null);
+    try {
+      await retryVideo(id);
+      await fetchVideos();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to retry video');
+    } finally {
+      setRetryingId(null);
     }
   }
 
@@ -154,7 +168,13 @@ export default function Dashboard() {
           </thead>
           <tbody>
             {filteredVideos.map((video) => (
-              <VideoCard key={video.id} video={video} onDelete={handleDelete} />
+              <VideoCard
+                key={video.id}
+                video={video}
+                onDelete={handleDelete}
+                onRetry={handleRetry}
+                retrying={retryingId === video.id}
+              />
             ))}
           </tbody>
         </table>

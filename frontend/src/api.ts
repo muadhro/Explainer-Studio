@@ -55,6 +55,11 @@ export async function deleteVideo(id: string): Promise<void> {
   await handleResponse(response);
 }
 
+export async function retryVideo(id: string): Promise<void> {
+  const response = await apiFetch(`${VIDEOS_URL}/${id}/retry`, { method: 'POST' });
+  await handleResponse(response);
+}
+
 export function downloadVideoUrl(id: string): string {
   return `${VIDEOS_URL}/${id}/download`;
 }

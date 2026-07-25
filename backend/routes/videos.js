@@ -166,6 +166,35 @@ router.get(
   }),
 );
 
+// POST /api/videos/:id/retry — re-run a failed job from scratch (same video row).
+router.post(
+  '/:id/retry',
+  asyncHandler(async (req, res) => {
+    const video = await loadOwnedVideo(req, res);
+    if (!video) return;
+
+    if (video.status !== 'failed') {
+      return res.status(400).json({ message: 'Only failed videos can be retried' });
+    }
+
+    fileService.deleteIfExists(video.videoPath);
+    fileService.deleteIfExists(video.audioPath);
+
+    await db.updateVideo(video.id, {
+      status: 'queued',
+      progress: 0,
+      errorMessage: null,
+      audioPath: null,
+      videoPath: null,
+      fileSize: null,
+      narrationChars: null,
+    });
+    videoQueue.enqueue(video.id);
+
+    res.json({ message: 'Video generation re-queued' });
+  }),
+);
+
 // DELETE /api/videos/:id
 router.delete(
   '/:id',

@@ -6,9 +6,11 @@ import { downloadVideoUrl, playVideoUrl } from '../api';
 interface VideoCardProps {
   video: Video;
   onDelete: (id: string) => void;
+  onRetry: (id: string) => void;
+  retrying?: boolean;
 }
 
-export default function VideoCard({ video, onDelete }: VideoCardProps) {
+export default function VideoCard({ video, onDelete, onRetry, retrying }: VideoCardProps) {
   const [showPlayer, setShowPlayer] = useState(false);
   const created = new Date(video.createdAt).toLocaleString();
 
@@ -47,6 +49,11 @@ export default function VideoCard({ video, onDelete }: VideoCardProps) {
                 {showPlayer ? 'Hide' : 'View'}
               </button>
             </>
+          )}
+          {video.status === 'failed' && (
+            <button type="button" onClick={() => onRetry(video.id)} disabled={retrying}>
+              {retrying ? 'Retrying…' : 'Retry'}
+            </button>
           )}
           <button type="button" onClick={() => onDelete(video.id)}>
             Delete
