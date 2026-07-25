@@ -1,11 +1,9 @@
 import { useState, FormEvent } from 'react';
-import { useAuth } from '../AuthContext';
 import { submitContactForm } from '../api';
 
 export default function Contact() {
-  const { user } = useAuth();
-  const [name, setName] = useState(user?.fullName || '');
-  const [email, setEmail] = useState(user?.email || '');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
