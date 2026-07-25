@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { createVideo, listVoices } from '../api';
+import { createVideo, listVoices, fetchBilling } from '../api';
 import AppleSelect from '../components/AppleSelect';
 import { useAuth } from '../AuthContext';
-import type { AnimationStyle, VideoQuality, Voice } from '../types';
+import type { AnimationStyle, VideoQuality, Voice, BillingInfo } from '../types';
 
 const ANIMATION_STYLES: AnimationStyle[] = [
   'Animated Explainer',
@@ -11,7 +11,8 @@ const ANIMATION_STYLES: AnimationStyle[] = [
   'Motion Graphics',
   'Flat Design 2D',
 ];
-const QUALITIES: VideoQuality[] = ['720p', '1080p'];
+const QUALITIES: VideoQuality[] = ['720p', '1080p', '1440p', '4K'];
+const QUALITY_ORDER: VideoQuality[] = ['720p', '1080p', '1440p', '4K'];
 const DURATIONS = [
   { value: 1, label: '~1 minute', chars: 900 },
   { value: 2, label: '~2 minutes', chars: 1800 },
@@ -22,7 +23,29 @@ const DURATIONS = [
 export default function Upload() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const quality1080Locked = user?.role !== 'admin' && user?.plan === 'free';
+  const [billing, setBilling] = useState<BillingInfo | null>(null);
+
+  useEffect(() => {
+    fetchBilling().then(setBilling).catch(() => {});
+  }, []);
+
+  const isAdmin = user?.role === 'admin';
+  const maxAllowedIndex = isAdmin
+    ? QUALITY_ORDER.length - 1
+    : QUALITY_ORDER.indexOf((billing?.plan.maxQuality as VideoQuality) || '720p');
+
+  function lockedFor(q: VideoQuality) {
+    return !isAdmin && QUALITY_ORDER.indexOf(q) > maxAllowedIndex;
+  }
+
+  function planRequiredFor(q: VideoQuality) {
+    if (!billing) return null;
+    const candidates = billing.plans.filter(
+      (p) => QUALITY_ORDER.indexOf(p.maxQuality as VideoQuality) >= QUALITY_ORDER.indexOf(q),
+    );
+    return candidates[0]?.name || null;
+  }
+
   const [title, setTitle] = useState('');
   const [courseContent, setCourseContent] = useState('');
   const [animationStyle, setAnimationStyle] = useState<AnimationStyle>(ANIMATION_STYLES[0]);
@@ -201,7 +224,8 @@ export default function Upload() {
         <fieldset disabled={submitting}>
           <legend>Video Quality</legend>
           {QUALITIES.map((q) => {
-            const locked = q === '1080p' && quality1080Locked;
+            const locked = lockedFor(q);
+            const requiredPlan = locked ? planRequiredFor(q) : null;
             return (
               <label key={q} className={`radio-label${locked ? ' radio-label--locked' : ''}`}>
                 <input
@@ -216,7 +240,7 @@ export default function Upload() {
                 {locked && (
                   <span className="field-hint">
                     {' '}
-                    — <Link to="/pricing">upgrade to unlock</Link>
+                    — <Link to="/pricing">{requiredPlan ? `requires ${requiredPlan}` : 'upgrade to unlock'}</Link>
                   </span>
                 )}
               </label>

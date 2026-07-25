@@ -85,7 +85,7 @@ export interface Voice {
   accent: string;
   previewUrl: string | null;
 }
-export type VideoQuality = '720p' | '1080p';
+export type VideoQuality = '720p' | '1080p' | '1440p' | '4K';
 export type VideoStatus = 'queued' | 'processing' | 'complete' | 'failed';
 
 export interface Video {

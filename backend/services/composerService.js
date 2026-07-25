@@ -19,6 +19,8 @@ const STYLE_THEMES = {
 const QUALITY_DIMENSIONS = {
   '720p': { width: 1280, height: 720 },
   '1080p': { width: 1920, height: 1080 },
+  '1440p': { width: 2560, height: 1440 },
+  '4K': { width: 3840, height: 2160 },
 };
 
 function runFfmpeg(args) {

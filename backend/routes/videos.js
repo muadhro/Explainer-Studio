@@ -6,12 +6,18 @@ const fileService = require('../services/fileService');
 const videoQueue = require('../queue/videoQueue');
 const auth = require('../services/authService');
 const asyncHandler = require('../utils/asyncHandler');
-const { getPlan } = require('../config/plans');
+const { getPlan, QUALITY_ORDER, PLANS } = require('../config/plans');
+
+/** Cheapest plan whose maxQuality covers the requested quality tier, for error messages. */
+function cheapestPlanFor(quality) {
+  const minIndex = QUALITY_ORDER.indexOf(quality);
+  return PLANS.find((p) => QUALITY_ORDER.indexOf(p.maxQuality) >= minIndex);
+}
 
 const router = express.Router();
 
 const VALID_STYLES = ['Animated Explainer', 'Kinetic Typography', 'Motion Graphics', 'Flat Design 2D'];
-const VALID_QUALITIES = ['720p', '1080p'];
+const VALID_QUALITIES = QUALITY_ORDER;
 const VALID_DURATIONS = [1, 2, 3, 5];
 
 router.use(auth.attachUser, auth.requireAuth);
@@ -61,8 +67,11 @@ router.post(
           message: `You've used all ${plan.videosPerMonth} videos on the ${plan.name} plan this month. Upgrade for more.`,
         });
       }
-      if (quality === '1080p' && plan.maxQuality === '720p') {
-        return res.status(402).json({ message: '1080p rendering requires the Starter plan or higher.' });
+      if (QUALITY_ORDER.indexOf(quality) > QUALITY_ORDER.indexOf(plan.maxQuality)) {
+        const requiredPlan = cheapestPlanFor(quality);
+        return res.status(402).json({
+          message: `${quality} rendering requires the ${requiredPlan ? requiredPlan.name : 'a higher'} plan or higher.`,
+        });
       }
       const charsUsed = await db.sumNarrationCharsThisMonthForUser(req.user.id);
       if (charsUsed >= plan.monthlyCharacterBudget) {

@@ -1,3 +1,7 @@
+// Rendering resolutions, ordered low to high — a plan's maxQuality unlocks
+// everything at or below its own position in this list.
+const QUALITY_ORDER = ['720p', '1080p', '1440p', '4K'];
+
 // Plan catalogue. basePrice is the 1-month price; longer commitments apply
 // discountPct off that base and are billed as one lump sum for the term.
 const PLANS = [
@@ -42,12 +46,12 @@ const PLANS = [
     basePrice: 65,
     videosPerMonth: 50,
     monthlyCharacterBudget: 170000,
-    maxQuality: '1080p',
+    maxQuality: '1440p',
     popular: true,
     features: [
       '50 videos / month',
       '170,000 narration characters / month',
-      '1080p rendering',
+      '1440p rendering',
       'All animation styles',
       'Full voice library access',
       '100 studio projects',
@@ -62,11 +66,11 @@ const PLANS = [
     basePrice: 149,
     videosPerMonth: 300,
     monthlyCharacterBudget: 1000000,
-    maxQuality: '1080p',
+    maxQuality: '4K',
     features: [
       '300 videos / month',
       '1,000,000 narration characters / month',
-      '1080p rendering',
+      '4K rendering',
       'All animation styles',
       'Dedicated render capacity',
       'Unlimited studio projects',
@@ -103,4 +107,4 @@ function priceForPlan(planId, months) {
   };
 }
 
-module.exports = { PLANS, BILLING_CYCLES, getPlan, getCycle, priceForPlan };
+module.exports = { PLANS, BILLING_CYCLES, QUALITY_ORDER, getPlan, getCycle, priceForPlan };
