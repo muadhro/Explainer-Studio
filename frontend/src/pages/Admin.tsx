@@ -1,23 +1,75 @@
 import { useEffect, useState } from 'react';
-import { fetchAdminUsers, fetchAdminStats } from '../api';
+import { fetchAdminUsers, fetchAdminStats, createAdminUser, deleteAdminUser } from '../api';
+import { useAuth } from '../AuthContext';
 import type { AdminUser, AdminStats } from '../types';
 
 export default function Admin() {
+  const { user: me } = useAuth();
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState<'user' | 'admin'>('user');
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    Promise.all([fetchAdminUsers(), fetchAdminStats()])
+  function loadAll() {
+    return Promise.all([fetchAdminUsers(), fetchAdminStats()])
       .then(([u, s]) => {
         setUsers(u);
         setStats(s);
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load admin data'));
+  }
+
+  useEffect(() => {
+    loadAll();
   }, []);
 
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  async function handleAddUser() {
+    setFormError(null);
+    if (!fullName || !email || !password) {
+      setFormError('Name, email, and password are required.');
+      return;
+    }
+    if (password.length < 8) {
+      setFormError('Password must be at least 8 characters.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await createAdminUser({ fullName, email, password, role });
+      setFullName('');
+      setEmail('');
+      setPassword('');
+      setRole('user');
+      setAddOpen(false);
+      await loadAll();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create user');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteUser(id: string) {
+    setDeletingId(id);
+    try {
+      await deleteAdminUser(id);
+      await loadAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete user');
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   return (
@@ -56,7 +108,46 @@ export default function Admin() {
       )}
 
       <div className="settings-card">
-        <h2>All Users</h2>
+        <div className="plan-summary" style={{ marginBottom: addOpen ? 16 : 0 }}>
+          <h2 style={{ margin: 0 }}>All Users</h2>
+          <button type="button" className="pill-button" onClick={() => setAddOpen((v) => !v)}>
+            {addOpen ? 'Cancel' : 'Add User'}
+          </button>
+        </div>
+
+        {addOpen && (
+          <div className="delete-confirm" style={{ marginBottom: 20 }}>
+            <label>
+              Full Name
+              <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={saving} />
+            </label>
+            <label>
+              Email Address
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={saving} />
+            </label>
+            <label>
+              Password
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={saving} />
+            </label>
+            <label>
+              Role
+              <select value={role} onChange={(e) => setRole(e.target.value as 'user' | 'admin')} disabled={saving}>
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+            {formError && <div className="error-text">{formError}</div>}
+            <div className="delete-confirm__actions">
+              <button type="button" onClick={() => setAddOpen(false)} disabled={saving}>
+                Cancel
+              </button>
+              <button type="button" className="pill-button" onClick={handleAddUser} disabled={saving}>
+                {saving ? 'Creating…' : 'Create User'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {!users ? (
           <p>Loading…</p>
         ) : (
@@ -66,6 +157,7 @@ export default function Admin() {
                 <tr>
                   <th>Name</th>
                   <th>Email</th>
+                  <th>Subscription ID</th>
                   <th>Plan</th>
                   <th>Term</th>
                   <th>Est. $/mo</th>
@@ -73,6 +165,7 @@ export default function Admin() {
                   <th>Sign-in</th>
                   <th>Role</th>
                   <th>Joined</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -83,6 +176,9 @@ export default function Admin() {
                       {u.title && <div className="video-meta">{u.title}</div>}
                     </td>
                     <td>{u.email}</td>
+                    <td>
+                      <span className="video-meta">{u.subscriptionId || '—'}</span>
+                    </td>
                     <td>
                       <span className={`status-badge status-badge--${u.plan === 'free' ? 'queued' : 'complete'}`}>
                         {u.planName}
@@ -97,6 +193,18 @@ export default function Admin() {
                     </td>
                     <td>{u.role === 'admin' && <span className="session-row__badge">Admin</span>}</td>
                     <td>{formatDate(u.createdAt)}</td>
+                    <td>
+                      {u.id !== me?.id && (
+                        <button
+                          type="button"
+                          className="danger-link"
+                          onClick={() => handleDeleteUser(u.id)}
+                          disabled={deletingId === u.id}
+                        >
+                          {deletingId === u.id ? 'Removing…' : 'Remove'}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

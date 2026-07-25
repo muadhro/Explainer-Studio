@@ -18,7 +18,6 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showForgotNote, setShowForgotNote] = useState(false);
 
   const from = (location.state as { from?: string } | null)?.from || '/';
 
@@ -88,20 +87,10 @@ export default function Login() {
           </label>
 
           <div className="auth-links-row">
-            <button
-              type="button"
-              className="link-button"
-              onClick={() => setShowForgotNote((v) => !v)}
-            >
+            <Link to="/forgot-password" className="link-button">
               Forgot password?
-            </button>
+            </Link>
           </div>
-          {showForgotNote && (
-            <p className="auth-note">
-              Password reset emails aren't configured yet in this local build — for now, ask an admin
-              to reset your password directly in the database.
-            </p>
-          )}
 
           {error && <div className="error-text">{error}</div>}
 

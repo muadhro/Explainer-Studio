@@ -156,4 +156,12 @@ async function getSubscription(subscriptionId) {
   return paypalRequest(`/v1/billing/subscriptions/${subscriptionId}`);
 }
 
-module.exports = { ensurePaypalPlan, createSubscription, getSubscription };
+/** Cancel a live subscription so it will not auto-renew or bill again. */
+async function cancelSubscription(subscriptionId, reason) {
+  await paypalRequest(`/v1/billing/subscriptions/${subscriptionId}/cancel`, {
+    method: 'POST',
+    body: { reason: reason || 'Auto-renewal turned off by customer' },
+  });
+}
+
+module.exports = { ensurePaypalPlan, createSubscription, getSubscription, cancelSubscription };

@@ -153,6 +153,7 @@ router.get(
 
     res.json({
       subscriptionId: user.subscriptionId,
+      autoRenew: Boolean(user.autoRenew),
       plan: { ...plan, cycle: cycle.months, price },
       periodStart,
       expiresAt,
@@ -246,6 +247,34 @@ router.post(
     });
 
     res.json({ user: auth.sanitizeUser(user), message: 'Subscription active — plan updated.' });
+  }),
+);
+
+router.patch(
+  '/billing/auto-renew',
+  asyncHandler(async (req, res) => {
+    const { autoRenew } = req.body || {};
+    if (typeof autoRenew !== 'boolean') {
+      return res.status(400).json({ message: 'autoRenew must be true or false' });
+    }
+
+    // Turning auto-renew off cancels the live PayPal subscription outright —
+    // PayPal has no "renew later" state, only ACTIVE or CANCELLED, so this is
+    // the only way to guarantee no further charge happens at the next cycle.
+    if (!autoRenew && req.user.paypalSubscriptionId) {
+      try {
+        await paypal.cancelSubscription(req.user.paypalSubscriptionId);
+      } catch (err) {
+        console.error('[account] Failed to cancel PayPal subscription:', err.message);
+        return res.status(502).json({ message: 'Failed to cancel the subscription with PayPal. Please try again.' });
+      }
+    }
+
+    const user = await db.updateUser(req.user.id, {
+      autoRenew: autoRenew ? 1 : 0,
+      paypalSubscriptionId: !autoRenew ? null : req.user.paypalSubscriptionId,
+    });
+    res.json({ user: auth.sanitizeUser(user) });
   }),
 );
 

@@ -66,6 +66,7 @@ export interface BillingCycleOption {
 
 export interface BillingInfo {
   subscriptionId: string;
+  autoRenew: boolean;
   plan: Plan & { cycle: number; price: { monthly: number; total: number } };
   periodStart: string;
   expiresAt: string | null;

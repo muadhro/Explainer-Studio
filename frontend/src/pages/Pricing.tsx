@@ -13,6 +13,14 @@ export default function Pricing() {
   const [switching, setSwitching] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pendingPlan, setPendingPlan] = useState<{
+    id: string;
+    name: string;
+    cycleMonths: number;
+    cycleLabel: string;
+    monthly: number;
+    total: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -73,7 +81,7 @@ export default function Pricing() {
     return Number.isInteger(value) ? String(value) : value.toFixed(2);
   }
 
-  async function handleSelect(planId: string) {
+  function handleSelect(planId: string) {
     setError(null);
     setNotice(null);
     if (!user) {
@@ -82,22 +90,51 @@ export default function Pricing() {
     }
     if (planId === billing?.plan.id && cycleMonths === billing?.plan.cycle) return;
 
+    if (planId === 'free') {
+      void applyFreePlan(planId);
+      return;
+    }
+
+    // Paid plans need an explicit confirmation of plan + term + price before
+    // we redirect the buyer off-site to PayPal to approve the charge.
+    const plan = plans.find((p) => p.id === planId);
+    if (!plan) return;
+    const monthly = priceFor(plan.basePrice);
+    setPendingPlan({
+      id: planId,
+      name: plan.name,
+      cycleMonths,
+      cycleLabel: activeCycle.label,
+      monthly,
+      total: Math.round(monthly * cycleMonths * 100) / 100,
+    });
+  }
+
+  async function applyFreePlan(planId: string) {
     setSwitching(planId);
     try {
-      if (planId === 'free') {
-        await switchPlan(planId, cycleMonths);
-        setBilling(await fetchBilling());
-      } else {
-        // Paid plans go through a real PayPal checkout — redirect the buyer
-        // to PayPal to approve, then they land back here via the return_url.
-        const { approveUrl } = await createPaypalSubscription(planId, cycleMonths);
-        window.location.href = approveUrl;
-        return; // leaving the page
-      }
+      await switchPlan(planId, cycleMonths);
+      setBilling(await fetchBilling());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update plan');
     } finally {
       setSwitching(null);
+    }
+  }
+
+  async function confirmPurchase() {
+    if (!pendingPlan) return;
+    setError(null);
+    setSwitching(pendingPlan.id);
+    try {
+      // Paid plans go through a real PayPal checkout — redirect the buyer
+      // to PayPal to approve, then they land back here via the return_url.
+      const { approveUrl } = await createPaypalSubscription(pendingPlan.id, pendingPlan.cycleMonths);
+      window.location.href = approveUrl;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start checkout');
+      setSwitching(null);
+      setPendingPlan(null);
     }
   }
 
@@ -122,6 +159,45 @@ export default function Pricing() {
 
       {notice && <p className="pricing-notice">{notice}</p>}
       {error && <div className="error-text" style={{ textAlign: 'center', marginBottom: 16 }}>{error}</div>}
+
+      {pendingPlan && (
+        <div className="settings-card" style={{ maxWidth: 440, margin: '0 auto 32px' }}>
+          <h2>Confirm your subscription</h2>
+          <div className="delete-confirm">
+            <div className="toggle-row">
+              <div className="toggle-row__label">Plan</div>
+              <strong>{pendingPlan.name}</strong>
+            </div>
+            <div className="toggle-row">
+              <div className="toggle-row__label">Term</div>
+              <strong>{pendingPlan.cycleLabel}</strong>
+            </div>
+            <div className="toggle-row">
+              <div className="toggle-row__label">Price</div>
+              <strong>
+                ${formatPrice(pendingPlan.monthly)}/mo
+                {pendingPlan.cycleMonths > 1 && ` · $${formatPrice(pendingPlan.total)} billed now`}
+              </strong>
+            </div>
+            <p className="field-hint">
+              You'll be redirected to PayPal to approve this charge. Nothing is billed until you approve it there.
+            </p>
+            <div className="delete-confirm__actions">
+              <button type="button" onClick={() => setPendingPlan(null)} disabled={switching === pendingPlan.id}>
+                Back
+              </button>
+              <button
+                type="button"
+                className="pill-button"
+                onClick={confirmPurchase}
+                disabled={switching === pendingPlan.id}
+              >
+                {switching === pendingPlan.id ? 'Redirecting to PayPal…' : 'Confirm & Continue to PayPal'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="pricing-grid">
         {plans.map((plan) => {

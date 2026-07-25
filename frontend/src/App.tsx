@@ -9,9 +9,12 @@ import Upload from './pages/Upload';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Pricing from './pages/Pricing';
 import Account from './pages/Account';
 import Admin from './pages/Admin';
+import Contact from './pages/Contact';
 import Legal from './pages/Legal';
 
 function Nav() {
@@ -36,6 +39,9 @@ function Nav() {
           )}
           <NavLink to="/pricing" className={({ isActive }) => (isActive ? 'active' : '')}>
             Pricing
+          </NavLink>
+          <NavLink to="/contact" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Contact
           </NavLink>
           {user?.role === 'admin' && (
             <NavLink to="/admin" className={({ isActive }) => (isActive ? 'active' : '')}>
@@ -75,7 +81,10 @@ export default function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/pricing" element={<Pricing />} />
+                <Route path="/contact" element={<Contact />} />
                 <Route path="/terms" element={<Legal title="Terms of Service" />} />
                 <Route path="/privacy" element={<Legal title="Privacy Policy" />} />
                 <Route

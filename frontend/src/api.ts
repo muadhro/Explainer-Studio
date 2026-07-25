@@ -92,6 +92,30 @@ export async function fetchCurrentUser(): Promise<User | null> {
   return data.user;
 }
 
+export async function forgotPassword(email: string): Promise<string> {
+  const response = await jsonFetch('/api/auth/forgot-password', 'POST', { email });
+  const data = await handleResponse<{ message: string }>(response);
+  return data.message;
+}
+
+export async function resetPassword(token: string, password: string): Promise<User> {
+  const response = await jsonFetch('/api/auth/reset-password', 'POST', { token, password });
+  const data = await handleResponse<{ user: User }>(response);
+  return data.user;
+}
+
+// --- Contact ---
+export async function submitContactForm(payload: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}): Promise<string> {
+  const response = await jsonFetch('/api/contact', 'POST', payload);
+  const data = await handleResponse<{ message: string }>(response);
+  return data.message;
+}
+
 // --- Account ---
 export async function updateProfile(fields: {
   fullName?: string;
@@ -153,6 +177,12 @@ export async function switchPlan(planId: string, billingCycle: number): Promise<
   return handleResponse(response);
 }
 
+export async function updateAutoRenew(autoRenew: boolean): Promise<User> {
+  const response = await jsonFetch('/api/account/billing/auto-renew', 'PATCH', { autoRenew });
+  const data = await handleResponse<{ user: User }>(response);
+  return data.user;
+}
+
 export async function createPaypalSubscription(
   planId: string,
   billingCycle: number,
@@ -190,4 +220,20 @@ export async function fetchAdminUsers(): Promise<AdminUser[]> {
 export async function fetchAdminStats(): Promise<AdminStats> {
   const response = await apiFetch('/api/admin/stats');
   return handleResponse<AdminStats>(response);
+}
+
+export async function createAdminUser(payload: {
+  fullName: string;
+  email: string;
+  password: string;
+  role?: 'user' | 'admin';
+}): Promise<User> {
+  const response = await jsonFetch('/api/admin/users', 'POST', payload);
+  const data = await handleResponse<{ user: User }>(response);
+  return data.user;
+}
+
+export async function deleteAdminUser(id: string): Promise<void> {
+  const response = await apiFetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+  await handleResponse<{ message: string }>(response);
 }

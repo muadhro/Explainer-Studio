@@ -1,13 +1,16 @@
 const express = require('express');
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../database/db');
 const auth = require('../services/authService');
 const google = require('../services/googleAuthService');
+const email = require('../services/emailService');
 const asyncHandler = require('../utils/asyncHandler');
 
 const router = express.Router();
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const OAUTH_STATE_COOKIE = 'google_oauth_state';
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -78,6 +81,76 @@ router.post('/logout', auth.attachUser, asyncHandler(async (req, res) => {
 router.get('/me', auth.attachUser, (req, res) => {
   res.json({ user: auth.sanitizeUser(req.user) || null });
 });
+
+// --- Password reset ---
+router.post('/forgot-password', asyncHandler(async (req, res) => {
+  const { email: rawEmail } = req.body || {};
+  if (!rawEmail || !EMAIL_RE.test(rawEmail)) {
+    return res.status(400).json({ message: 'Enter a valid email address' });
+  }
+
+  // Always respond the same way regardless of whether the account exists,
+  // has a password (vs. Google-only), or the email actually sends — an
+  // attacker probing this endpoint should learn nothing from the response.
+  const genericMessage = "If an account exists for that email, we've sent a password reset link.";
+
+  const user = await db.getUserByEmail(rawEmail);
+  if (user) {
+    const token = crypto.randomBytes(32).toString('hex');
+    const now = new Date();
+    await db.createPasswordReset({
+      token,
+      userId: user.id,
+      expiresAt: new Date(now.getTime() + RESET_TOKEN_TTL_MS).toISOString(),
+      createdAt: now.toISOString(),
+    });
+
+    const resetUrl = `${FRONTEND_URL}/reset-password?token=${token}`;
+    try {
+      await email.sendEmail({
+        to: user.email,
+        subject: 'Reset your Explainer Studio password',
+        html: `<p>Hi ${user.fullName || 'there'},</p>
+<p>Someone requested a password reset for your Explainer Studio account. Click the link below to choose a new password — it expires in 1 hour.</p>
+<p><a href="${resetUrl}">${resetUrl}</a></p>
+<p>If you didn't request this, you can safely ignore this email.</p>`,
+        text: `Reset your Explainer Studio password: ${resetUrl} (expires in 1 hour). If you didn't request this, ignore this email.`,
+      });
+    } catch (err) {
+      console.error('[auth] Failed to send password reset email:', err.message);
+    }
+  }
+
+  res.json({ message: genericMessage });
+}));
+
+router.post('/reset-password', asyncHandler(async (req, res) => {
+  const { token, password } = req.body || {};
+  if (!token || !password) {
+    return res.status(400).json({ message: 'token and password are required' });
+  }
+  if (String(password).length < 8) {
+    return res.status(400).json({ message: 'Password must be at least 8 characters' });
+  }
+
+  const reset = await db.getPasswordReset(token);
+  if (!reset || new Date(reset.expiresAt).getTime() < Date.now()) {
+    if (reset) await db.deletePasswordReset(token);
+    return res.status(400).json({ message: 'This reset link is invalid or has expired' });
+  }
+
+  const passwordHash = await auth.hashPassword(password);
+  await db.updateUser(reset.userId, { passwordHash });
+  await db.deletePasswordResetsForUser(reset.userId);
+  // a compromised or forgotten password means every existing session should
+  // be treated as untrusted, not just the one making this request
+  await db.deleteAllSessions(reset.userId);
+
+  const session = await auth.createSessionForUser(reset.userId, req.headers['user-agent']);
+  auth.setSessionCookie(res, session.id);
+  const user = await db.getUserById(reset.userId);
+  res.json({ message: 'Password updated', user: auth.sanitizeUser(user) });
+}));
 
 // --- Google OAuth ---
 router.get('/google', (req, res) => {

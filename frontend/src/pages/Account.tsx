@@ -276,6 +276,8 @@ function SecurityTab() {
 function BillingTab() {
   const navigate = useNavigate();
   const [billing, setBilling] = useState<BillingInfo | null>(null);
+  const [savingRenew, setSavingRenew] = useState(false);
+  const [renewMessage, setRenewMessage] = useState<string | null>(null);
 
   useEffect(() => {
     api.fetchBilling().then(setBilling).catch(() => {});
@@ -284,6 +286,20 @@ function BillingTab() {
   if (!billing) return <SectionCard title="Current Plan"><p>Loading…</p></SectionCard>;
 
   const pct = Math.min(100, Math.round((billing.usage.videosUsed / billing.usage.videosLimit) * 100));
+
+  async function handleAutoRenewChange(value: boolean) {
+    setSavingRenew(true);
+    setRenewMessage(null);
+    try {
+      await api.updateAutoRenew(value);
+      setBilling(await api.fetchBilling());
+      setRenewMessage(value ? 'Auto-renewal is on.' : 'Auto-renewal is off — your plan will not renew at the end of this term.');
+    } catch (err) {
+      setRenewMessage(err instanceof Error ? err.message : 'Failed to update auto-renewal');
+    } finally {
+      setSavingRenew(false);
+    }
+  }
 
   return (
     <>
@@ -311,6 +327,23 @@ function BillingTab() {
           {billing.usage.videosUsed} of {billing.usage.videosLimit} videos used this month
         </p>
       </SectionCard>
+
+      {billing.plan.id !== 'free' && (
+        <SectionCard title="Auto-Renewal">
+          <ToggleRow
+            label="Automatically renew this subscription"
+            checked={billing.autoRenew}
+            disabled={savingRenew}
+            onChange={handleAutoRenewChange}
+          />
+          <p className="field-hint">
+            {billing.autoRenew
+              ? `Renews automatically on ${billing.expiresAt ? new Date(billing.expiresAt).toLocaleDateString() : 'your next billing date'}.`
+              : `Your plan stays active until ${billing.expiresAt ? new Date(billing.expiresAt).toLocaleDateString() : 'the end of this term'}, then won't renew.`}
+          </p>
+          {renewMessage && <div className="settings-message">{renewMessage}</div>}
+        </SectionCard>
+      )}
 
       <SectionCard title="Payment Methods">
         <p className="field-hint">No payment method on file.</p>

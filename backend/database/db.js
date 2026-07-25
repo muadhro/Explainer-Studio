@@ -92,6 +92,18 @@ const ready = (async () => {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "googleId" TEXT`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_googleId_idx ON users ("googleId") WHERE "googleId" IS NOT NULL`);
 
+  // migration for databases created before the auto-renew toggle existed
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "autoRenew" INTEGER NOT NULL DEFAULT 1`);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS password_resets (
+      "token" TEXT PRIMARY KEY,
+      "userId" TEXT NOT NULL,
+      "expiresAt" TEXT NOT NULL,
+      "createdAt" TEXT NOT NULL
+    )
+  `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sessions (
       "id" TEXT PRIMARY KEY,
@@ -219,6 +231,26 @@ async function deleteAllSessions(userId) {
   await pool.query('DELETE FROM sessions WHERE "userId" = $1', [userId]);
 }
 
+// --- password resets ---
+async function createPasswordReset(entry) {
+  const { text, values } = buildInsert('password_resets', entry);
+  await pool.query(text, values);
+  return entry;
+}
+
+async function getPasswordReset(token) {
+  const { rows } = await pool.query('SELECT * FROM password_resets WHERE "token" = $1', [token]);
+  return rows[0] || null;
+}
+
+async function deletePasswordReset(token) {
+  await pool.query('DELETE FROM password_resets WHERE "token" = $1', [token]);
+}
+
+async function deletePasswordResetsForUser(userId) {
+  await pool.query('DELETE FROM password_resets WHERE "userId" = $1', [userId]);
+}
+
 // --- videos ---
 async function createVideo(video) {
   const { text, values } = buildInsert('videos', video);
@@ -308,6 +340,10 @@ module.exports = {
   deleteSession,
   deleteOtherSessions,
   deleteAllSessions,
+  createPasswordReset,
+  getPasswordReset,
+  deletePasswordReset,
+  deletePasswordResetsForUser,
   getPaypalPlan,
   savePaypalPlan,
   getPaypalPlanByPaypalPlanId,
