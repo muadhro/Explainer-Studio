@@ -56,6 +56,12 @@ router.post(
     if (quality === '1080p' && plan.maxQuality === '720p') {
       return res.status(402).json({ message: '1080p rendering requires the Starter plan or higher.' });
     }
+    const charsUsed = await db.sumNarrationCharsThisMonthForUser(req.user.id);
+    if (charsUsed >= plan.monthlyCharacterBudget) {
+      return res.status(402).json({
+        message: `You've used your ${plan.monthlyCharacterBudget.toLocaleString()}-character narration budget on the ${plan.name} plan this month. Upgrade for more.`,
+      });
+    }
 
     const video = await db.createVideo({
       id: uuidv4(),

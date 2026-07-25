@@ -148,6 +148,7 @@ router.get(
     const cycle = getCycle(user.billingCycle);
     const price = priceForPlan(plan.id, cycle.months);
     const videosUsed = await db.countVideosThisMonthForUser(user.id);
+    const charsUsed = await db.sumNarrationCharsThisMonthForUser(user.id);
     const periodStart = user.planUpdatedAt || user.createdAt;
     const expiresAt = plan.id === 'free' ? null : addMonths(periodStart, cycle.months);
 
@@ -157,7 +158,12 @@ router.get(
       plan: { ...plan, cycle: cycle.months, price },
       periodStart,
       expiresAt,
-      usage: { videosUsed, videosLimit: plan.videosPerMonth },
+      usage: {
+        videosUsed,
+        videosLimit: plan.videosPerMonth,
+        charsUsed,
+        charsLimit: plan.monthlyCharacterBudget,
+      },
       // no real payment processor is connected — this is a placeholder history
       invoices: [],
       plans: PLANS,
@@ -197,13 +203,20 @@ router.post(
 router.post(
   '/billing/paypal/create-subscription',
   asyncHandler(async (req, res) => {
-    const { planId, billingCycle } = req.body || {};
+    const { planId, billingCycle, billingCountry, billingAddress, billingCity, billingZip } = req.body || {};
     const plan = PLANS.find((p) => p.id === planId);
     if (!plan) return res.status(400).json({ message: 'Unknown plan' });
     if (plan.id === 'free') return res.status(400).json({ message: 'The Free plan needs no checkout' });
     if (!BILLING_CYCLES.some((c) => String(c.months) === String(billingCycle))) {
       return res.status(400).json({ message: 'Invalid billing cycle' });
     }
+    if (!billingCountry || !billingAddress || !billingCity || !billingZip) {
+      return res.status(400).json({ message: 'Billing country, address, city, and zip are required' });
+    }
+
+    // Kept for our own invoicing/tax records — PayPal separately collects
+    // its own payment/address details during its own checkout flow.
+    await db.updateUser(req.user.id, { billingCountry, billingAddress, billingCity, billingZip });
 
     // PayPal appends its own `subscription_id` (and `ba_token`/`token`) query
     // params to return_url on redirect — no templating needed here.

@@ -1473,6 +1473,13 @@ button[type='submit']:disabled {
   border-radius: var(--radius-input);
 }
 
+.form-panel {
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--bg-section);
+  border-radius: var(--radius-input);
+}
+
 .delete-confirm__actions {
   display: flex;
   gap: 10px;

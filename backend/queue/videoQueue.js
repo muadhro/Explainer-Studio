@@ -1,4 +1,5 @@
-const { updateVideo, getVideoById } = require('../database/db');
+const { updateVideo, getVideoById, getUserById, sumNarrationCharsThisMonthForUser } = require('../database/db');
+const { getPlan } = require('../config/plans');
 const { generateScript } = require('../services/claudeService');
 const { generateVoiceover } = require('../services/elevenLabsService');
 const { fetchImageForScene, fetchIcon } = require('../services/imageService');
@@ -77,9 +78,28 @@ async function processVideo(videoId) {
 
   // Step 2: voiceover via ElevenLabs
   const fullNarration = script.scenes.map((s) => s.narration).join(' ');
+
+  // Checked here (after the cheap Claude call, before the costlier ElevenLabs
+  // call) rather than only at submit time, since the actual narration length
+  // for this specific video isn't known until the script exists.
+  if (video.userId) {
+    const user = await getUserById(video.userId);
+    if (user) {
+      const plan = getPlan(user.plan);
+      const charsUsedSoFar = await sumNarrationCharsThisMonthForUser(video.userId);
+      if (charsUsedSoFar + fullNarration.length > plan.monthlyCharacterBudget) {
+        throw new Error(
+          `This video's narration (${fullNarration.length.toLocaleString()} characters) would exceed the ` +
+            `${plan.name} plan's ${plan.monthlyCharacterBudget.toLocaleString()}-character monthly budget ` +
+            `(${charsUsedSoFar.toLocaleString()} already used). Upgrade your plan or shorten the course content.`,
+        );
+      }
+    }
+  }
+
   const audioPath = fileService.audioPathFor(video.title, video.id);
   await generateVoiceover(fullNarration, audioPath, video.voiceId || undefined);
-  await updateVideo(videoId, { audioPath, progress: 30 });
+  await updateVideo(videoId, { audioPath, progress: 30, narrationChars: fullNarration.length });
 
   const renderMode = (process.env.RENDER_MODE || 'local').toLowerCase();
   const videoPath = fileService.videoPathFor(video.title, video.quality);

@@ -53,6 +53,7 @@ export interface Plan {
   name: string;
   basePrice: number;
   videosPerMonth: number;
+  monthlyCharacterBudget: number;
   maxQuality: string;
   popular?: boolean;
   features: string[];
@@ -70,7 +71,7 @@ export interface BillingInfo {
   plan: Plan & { cycle: number; price: { monthly: number; total: number } };
   periodStart: string;
   expiresAt: string | null;
-  usage: { videosUsed: number; videosLimit: number };
+  usage: { videosUsed: number; videosLimit: number; charsUsed: number; charsLimit: number };
   invoices: unknown[];
   plans: Plan[];
   billingCycles: BillingCycleOption[];

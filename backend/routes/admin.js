@@ -91,6 +91,61 @@ router.post(
   }),
 );
 
+// PATCH /api/admin/users/:id — admin manages an account: change role and/or reset its password.
+router.patch(
+  '/users/:id',
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { role, newPassword } = req.body || {};
+
+    if (id === req.user.id) {
+      return res.status(400).json({ message: 'Use Account Settings to manage your own account' });
+    }
+
+    const target = await db.getUserById(id);
+    if (!target) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const fields = {};
+
+    if (role !== undefined) {
+      if (role !== 'user' && role !== 'admin') {
+        return res.status(400).json({ message: 'role must be "user" or "admin"' });
+      }
+      if (target.role === 'admin' && role === 'user') {
+        const users = await db.getAllUsersWithVideoCounts();
+        const adminCount = users.filter((u) => u.role === 'admin').length;
+        if (adminCount <= 1) {
+          return res.status(400).json({ message: 'Cannot demote the last remaining admin' });
+        }
+      }
+      fields.role = role;
+    }
+
+    if (newPassword !== undefined) {
+      if (String(newPassword).length < 8) {
+        return res.status(400).json({ message: 'Password must be at least 8 characters' });
+      }
+      fields.passwordHash = await auth.hashPassword(newPassword);
+    }
+
+    if (Object.keys(fields).length === 0) {
+      return res.status(400).json({ message: 'Nothing to update — provide role and/or newPassword' });
+    }
+
+    const user = await db.updateUser(id, fields);
+
+    // a password reset by an admin should invalidate every existing session
+    // for that account, the same as a self-service password reset would
+    if (newPassword !== undefined) {
+      await db.deleteAllSessions(id);
+    }
+
+    res.json({ user: auth.sanitizeUser(user) });
+  }),
+);
+
 // DELETE /api/admin/users/:id — admin removes a user account.
 router.delete(
   '/users/:id',

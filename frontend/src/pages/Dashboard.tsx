@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { listVideos, deleteVideo } from '../api';
-import type { Video, VideoStatus } from '../types';
+import { listVideos, deleteVideo, fetchBilling } from '../api';
+import type { Video, VideoStatus, BillingInfo } from '../types';
 import VideoCard from '../components/VideoCard';
 
 type SortKey = 'date' | 'status';
@@ -10,6 +10,7 @@ const POLL_INTERVAL_MS = 4000;
 export default function Dashboard() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [totalStorageMB, setTotalStorageMB] = useState(0);
+  const [billing, setBilling] = useState<BillingInfo | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<VideoStatus | 'all'>('all');
   const [sortKey, setSortKey] = useState<SortKey>('date');
@@ -34,6 +35,10 @@ export default function Dashboard() {
     const interval = setInterval(fetchVideos, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [fetchVideos]);
+
+  useEffect(() => {
+    fetchBilling().then(setBilling).catch(() => {});
+  }, [videos.length]);
 
   async function handleDelete(id: string) {
     if (!window.confirm('Delete this video? This cannot be undone.')) return;
@@ -72,6 +77,40 @@ export default function Dashboard() {
         <h1>Your Videos</h1>
         <span className="storage-badge">You're using {totalStorageMB.toFixed(1)} MB</span>
       </div>
+
+      {billing && (
+        <div className="settings-card" style={{ marginBottom: 20 }}>
+          <div className="plan-summary">
+            <div>
+              <div className="plan-summary__name">{billing.plan.name} Plan — Monthly Usage</div>
+              <div className="field-hint">
+                {billing.usage.videosUsed} of {billing.usage.videosLimit} videos generated
+                {' · '}
+                {Math.max(0, billing.usage.videosLimit - billing.usage.videosUsed)} remaining
+              </div>
+            </div>
+          </div>
+          <div className="usage-bar">
+            <div
+              className="usage-bar__fill"
+              style={{ width: `${Math.min(100, Math.round((billing.usage.videosUsed / billing.usage.videosLimit) * 100))}%` }}
+            />
+          </div>
+
+          <p className="field-hint" style={{ marginTop: 12 }}>
+            {billing.usage.charsUsed.toLocaleString()} of {billing.usage.charsLimit.toLocaleString()} narration
+            characters used
+            {' · '}
+            {Math.max(0, billing.usage.charsLimit - billing.usage.charsUsed).toLocaleString()} remaining
+          </p>
+          <div className="usage-bar">
+            <div
+              className="usage-bar__fill"
+              style={{ width: `${Math.min(100, Math.round((billing.usage.charsUsed / billing.usage.charsLimit) * 100))}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="dashboard-controls">
         <input

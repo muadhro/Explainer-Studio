@@ -95,6 +95,15 @@ const ready = (async () => {
   // migration for databases created before the auto-renew toggle existed
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "autoRenew" INTEGER NOT NULL DEFAULT 1`);
 
+  // migration for databases created before checkout collected a billing address
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "billingCountry" TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "billingAddress" TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "billingCity" TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "billingZip" TEXT`);
+
+  // migration for databases created before per-plan narration character budgets existed
+  await pool.query(`ALTER TABLE videos ADD COLUMN IF NOT EXISTS "narrationChars" INTEGER`);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS password_resets (
       "token" TEXT PRIMARY KEY,
@@ -279,6 +288,17 @@ async function countVideosThisMonthForUser(userId) {
   return rows[0].count;
 }
 
+async function sumNarrationCharsThisMonthForUser(userId) {
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+  const { rows } = await pool.query(
+    'SELECT COALESCE(SUM("narrationChars"), 0)::int as total FROM videos WHERE "userId" = $1 AND "createdAt" >= $2',
+    [userId, startOfMonth.toISOString()],
+  );
+  return rows[0].total;
+}
+
 async function getVideoById(id) {
   const { rows } = await pool.query('SELECT * FROM videos WHERE "id" = $1', [id]);
   return rows[0] || null;
@@ -323,6 +343,7 @@ module.exports = {
   getAllVideos,
   getVideosForUser,
   countVideosThisMonthForUser,
+  sumNarrationCharsThisMonthForUser,
   getVideoById,
   updateVideo,
   deleteVideo,

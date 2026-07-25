@@ -286,6 +286,7 @@ function BillingTab() {
   if (!billing) return <SectionCard title="Current Plan"><p>Loading…</p></SectionCard>;
 
   const pct = Math.min(100, Math.round((billing.usage.videosUsed / billing.usage.videosLimit) * 100));
+  const charsPct = Math.min(100, Math.round((billing.usage.charsUsed / billing.usage.charsLimit) * 100));
 
   async function handleAutoRenewChange(value: boolean) {
     setSavingRenew(true);
@@ -325,6 +326,14 @@ function BillingTab() {
         </div>
         <p className="field-hint">
           {billing.usage.videosUsed} of {billing.usage.videosLimit} videos used this month
+        </p>
+
+        <div className="usage-bar">
+          <div className="usage-bar__fill" style={{ width: `${charsPct}%` }} />
+        </div>
+        <p className="field-hint">
+          {billing.usage.charsUsed.toLocaleString()} of {billing.usage.charsLimit.toLocaleString()} narration
+          characters used this month
         </p>
       </SectionCard>
 

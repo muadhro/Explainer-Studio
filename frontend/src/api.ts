@@ -186,10 +186,12 @@ export async function updateAutoRenew(autoRenew: boolean): Promise<User> {
 export async function createPaypalSubscription(
   planId: string,
   billingCycle: number,
+  billingInfo: { billingCountry: string; billingAddress: string; billingCity: string; billingZip: string },
 ): Promise<{ subscriptionId: string; approveUrl: string }> {
   const response = await jsonFetch('/api/account/billing/paypal/create-subscription', 'POST', {
     planId,
     billingCycle,
+    ...billingInfo,
   });
   return handleResponse(response);
 }
@@ -236,4 +238,13 @@ export async function createAdminUser(payload: {
 export async function deleteAdminUser(id: string): Promise<void> {
   const response = await apiFetch(`/api/admin/users/${id}`, { method: 'DELETE' });
   await handleResponse<{ message: string }>(response);
+}
+
+export async function manageAdminUser(
+  id: string,
+  fields: { role?: 'user' | 'admin'; newPassword?: string },
+): Promise<User> {
+  const response = await jsonFetch(`/api/admin/users/${id}`, 'PATCH', fields);
+  const data = await handleResponse<{ user: User }>(response);
+  return data.user;
 }

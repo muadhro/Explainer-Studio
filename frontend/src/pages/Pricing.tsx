@@ -21,6 +21,11 @@ export default function Pricing() {
     monthly: number;
     total: number;
   } | null>(null);
+  const [billingCountry, setBillingCountry] = useState('');
+  const [billingAddress, setBillingAddress] = useState('');
+  const [billingCity, setBillingCity] = useState('');
+  const [billingZip, setBillingZip] = useState('');
+  const [billingError, setBillingError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -125,11 +130,22 @@ export default function Pricing() {
   async function confirmPurchase() {
     if (!pendingPlan) return;
     setError(null);
+    setBillingError(null);
+    if (!billingCountry || !billingAddress || !billingCity || !billingZip) {
+      setBillingError('Country, address, city, and zip code are required.');
+      return;
+    }
+
     setSwitching(pendingPlan.id);
     try {
       // Paid plans go through a real PayPal checkout — redirect the buyer
       // to PayPal to approve, then they land back here via the return_url.
-      const { approveUrl } = await createPaypalSubscription(pendingPlan.id, pendingPlan.cycleMonths);
+      const { approveUrl } = await createPaypalSubscription(pendingPlan.id, pendingPlan.cycleMonths, {
+        billingCountry,
+        billingAddress,
+        billingCity,
+        billingZip,
+      });
       window.location.href = approveUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start checkout');
@@ -179,6 +195,46 @@ export default function Pricing() {
                 {pendingPlan.cycleMonths > 1 && ` · $${formatPrice(pendingPlan.total)} billed now`}
               </strong>
             </div>
+            <label>
+              Country / Region
+              <input
+                type="text"
+                value={billingCountry}
+                onChange={(e) => setBillingCountry(e.target.value)}
+                placeholder="United States"
+                disabled={switching === pendingPlan.id}
+              />
+            </label>
+            <label>
+              Address
+              <input
+                type="text"
+                value={billingAddress}
+                onChange={(e) => setBillingAddress(e.target.value)}
+                placeholder="123 Main St"
+                disabled={switching === pendingPlan.id}
+              />
+            </label>
+            <label>
+              City
+              <input
+                type="text"
+                value={billingCity}
+                onChange={(e) => setBillingCity(e.target.value)}
+                disabled={switching === pendingPlan.id}
+              />
+            </label>
+            <label>
+              Zip / Postal Code
+              <input
+                type="text"
+                value={billingZip}
+                onChange={(e) => setBillingZip(e.target.value)}
+                disabled={switching === pendingPlan.id}
+              />
+            </label>
+            {billingError && <div className="error-text">{billingError}</div>}
+
             <p className="field-hint">
               You'll be redirected to PayPal to approve this charge. Nothing is billed until you approve it there.
             </p>
@@ -275,9 +331,11 @@ const FALLBACK_PLANS = [
     name: 'Free',
     basePrice: 0,
     videosPerMonth: 3,
+    monthlyCharacterBudget: 15000,
     maxQuality: '720p',
     features: [
       '3 videos / month',
+      '15,000 narration characters / month',
       '720p rendering',
       'Animated Explainer + Flat Design styles',
       'Studio watermark included',
@@ -289,10 +347,12 @@ const FALLBACK_PLANS = [
     id: 'starter',
     name: 'Starter',
     basePrice: 25,
-    videosPerMonth: 15,
+    videosPerMonth: 20,
+    monthlyCharacterBudget: 60000,
     maxQuality: '1080p',
     features: [
-      '15 videos / month',
+      '20 videos / month',
+      '60,000 narration characters / month',
       '1080p rendering',
       'All animation styles',
       'No watermark',
@@ -306,10 +366,12 @@ const FALLBACK_PLANS = [
     name: 'Creator',
     basePrice: 65,
     videosPerMonth: 50,
+    monthlyCharacterBudget: 170000,
     maxQuality: '1080p',
     popular: true,
     features: [
       '50 videos / month',
+      '170,000 narration characters / month',
       '1080p rendering',
       'All animation styles',
       'Full voice library access',
@@ -323,10 +385,12 @@ const FALLBACK_PLANS = [
     id: 'studio',
     name: 'Studio',
     basePrice: 149,
-    videosPerMonth: 500,
+    videosPerMonth: 300,
+    monthlyCharacterBudget: 1000000,
     maxQuality: '1080p',
     features: [
-      '500 videos / month',
+      '300 videos / month',
+      '1,000,000 narration characters / month',
       '1080p rendering',
       'All animation styles',
       'Dedicated render capacity',

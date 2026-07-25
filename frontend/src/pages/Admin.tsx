@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchAdminUsers, fetchAdminStats, createAdminUser, deleteAdminUser } from '../api';
+import { fetchAdminUsers, fetchAdminStats, createAdminUser, deleteAdminUser, manageAdminUser } from '../api';
 import { useAuth } from '../AuthContext';
 import type { AdminUser, AdminStats } from '../types';
 
@@ -16,6 +16,13 @@ export default function Admin() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [manageTarget, setManageTarget] = useState<AdminUser | null>(null);
+  const [manageRole, setManageRole] = useState<'user' | 'admin'>('user');
+  const [manageNewPassword, setManageNewPassword] = useState('');
+  const [manageSavingRole, setManageSavingRole] = useState(false);
+  const [manageSavingPassword, setManageSavingPassword] = useState(false);
+  const [manageError, setManageError] = useState<string | null>(null);
+  const [manageMessage, setManageMessage] = useState<string | null>(null);
 
   function loadAll() {
     return Promise.all([fetchAdminUsers(), fetchAdminStats()])
@@ -72,6 +79,51 @@ export default function Admin() {
     }
   }
 
+  function openManage(u: AdminUser) {
+    setAddOpen(false);
+    setManageTarget(u);
+    setManageRole(u.role);
+    setManageNewPassword('');
+    setManageError(null);
+    setManageMessage(null);
+  }
+
+  async function handleUpdateRole() {
+    if (!manageTarget) return;
+    setManageError(null);
+    setManageMessage(null);
+    setManageSavingRole(true);
+    try {
+      await manageAdminUser(manageTarget.id, { role: manageRole });
+      setManageMessage('Role updated.');
+      await loadAll();
+    } catch (err) {
+      setManageError(err instanceof Error ? err.message : 'Failed to update role');
+    } finally {
+      setManageSavingRole(false);
+    }
+  }
+
+  async function handleResetPassword() {
+    if (!manageTarget) return;
+    setManageError(null);
+    setManageMessage(null);
+    if (manageNewPassword.length < 8) {
+      setManageError('New password must be at least 8 characters.');
+      return;
+    }
+    setManageSavingPassword(true);
+    try {
+      await manageAdminUser(manageTarget.id, { newPassword: manageNewPassword });
+      setManageNewPassword('');
+      setManageMessage("Password reset — the user's other sessions have been signed out.");
+    } catch (err) {
+      setManageError(err instanceof Error ? err.message : 'Failed to reset password');
+    } finally {
+      setManageSavingPassword(false);
+    }
+  }
+
   return (
     <div className="page page--wide">
       <h1>Admin Dashboard</h1>
@@ -116,18 +168,36 @@ export default function Admin() {
         </div>
 
         {addOpen && (
-          <div className="delete-confirm" style={{ marginBottom: 20 }}>
+          <div className="form-panel" style={{ marginBottom: 20 }}>
             <label>
               Full Name
-              <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={saving} />
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                disabled={saving}
+                autoComplete="off"
+              />
             </label>
             <label>
               Email Address
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={saving} />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={saving}
+                autoComplete="off"
+              />
             </label>
             <label>
               Password
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={saving} />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={saving}
+                autoComplete="new-password"
+              />
             </label>
             <label>
               Role
@@ -138,11 +208,64 @@ export default function Admin() {
             </label>
             {formError && <div className="error-text">{formError}</div>}
             <div className="delete-confirm__actions">
-              <button type="button" onClick={() => setAddOpen(false)} disabled={saving}>
-                Cancel
-              </button>
               <button type="button" className="pill-button" onClick={handleAddUser} disabled={saving}>
                 {saving ? 'Creating…' : 'Create User'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {manageTarget && (
+          <div className="form-panel" style={{ marginBottom: 20 }}>
+            <h3 style={{ marginTop: 0 }}>
+              Manage {manageTarget.fullName} <span className="field-hint">({manageTarget.email})</span>
+            </h3>
+
+            <label>
+              Role
+              <select
+                value={manageRole}
+                onChange={(e) => setManageRole(e.target.value as 'user' | 'admin')}
+                disabled={manageSavingRole}
+              >
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+            <div className="delete-confirm__actions">
+              <button type="button" className="pill-button" onClick={handleUpdateRole} disabled={manageSavingRole}>
+                {manageSavingRole ? 'Saving…' : 'Update Role'}
+              </button>
+            </div>
+
+            <label style={{ marginTop: 16 }}>
+              Reset Password
+              <input
+                type="password"
+                value={manageNewPassword}
+                onChange={(e) => setManageNewPassword(e.target.value)}
+                placeholder="New password (min. 8 characters)"
+                disabled={manageSavingPassword}
+                autoComplete="new-password"
+              />
+            </label>
+            <div className="delete-confirm__actions">
+              <button
+                type="button"
+                className="pill-button"
+                onClick={handleResetPassword}
+                disabled={manageSavingPassword}
+              >
+                {manageSavingPassword ? 'Resetting…' : 'Reset Password'}
+              </button>
+            </div>
+
+            {manageError && <div className="error-text">{manageError}</div>}
+            {manageMessage && <div className="settings-message">{manageMessage}</div>}
+
+            <div className="delete-confirm__actions">
+              <button type="button" onClick={() => setManageTarget(null)}>
+                Close
               </button>
             </div>
           </div>
@@ -195,14 +318,19 @@ export default function Admin() {
                     <td>{formatDate(u.createdAt)}</td>
                     <td>
                       {u.id !== me?.id && (
-                        <button
-                          type="button"
-                          className="danger-link"
-                          onClick={() => handleDeleteUser(u.id)}
-                          disabled={deletingId === u.id}
-                        >
-                          {deletingId === u.id ? 'Removing…' : 'Remove'}
-                        </button>
+                        <>
+                          <button type="button" onClick={() => openManage(u)} style={{ marginRight: 8 }}>
+                            Manage
+                          </button>
+                          <button
+                            type="button"
+                            className="danger-link"
+                            onClick={() => handleDeleteUser(u.id)}
+                            disabled={deletingId === u.id}
+                          >
+                            {deletingId === u.id ? 'Removing…' : 'Remove'}
+                          </button>
+                        </>
                       )}
                     </td>
                   </tr>
