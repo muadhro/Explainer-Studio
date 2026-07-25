@@ -4,6 +4,9 @@ const db = require('../database/db');
 
 const SESSION_COOKIE = 'session_id';
 const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+// A session with no activity for this long is treated as abandoned (browser
+// left open, forgot to sign out) and is invalidated on the next request.
+const SESSION_IDLE_TIMEOUT_MS = 10 * 60 * 1000;
 
 async function hashPassword(password) {
   return bcrypt.hash(password, 10);
@@ -45,6 +48,13 @@ async function attachUser(req, res, next) {
 
     const session = await db.getSessionById(sessionId);
     if (!session) return next();
+
+    const idleFor = Date.now() - new Date(session.lastSeenAt).getTime();
+    if (idleFor > SESSION_IDLE_TIMEOUT_MS) {
+      await db.deleteSession(sessionId);
+      clearSessionCookie(res);
+      return next();
+    }
 
     const user = await db.getUserById(session.userId);
     if (!user) return next();
