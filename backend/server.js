@@ -10,6 +10,7 @@ const authRouter = require('./routes/auth');
 const accountRouter = require('./routes/account');
 const adminRouter = require('./routes/admin');
 const contactRouter = require('./routes/contact');
+const analyticsRouter = require('./routes/analytics');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -24,6 +25,7 @@ app.use('/api/account', accountRouter);
 app.use('/api/videos', videosRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/contact', contactRouter);
+app.use('/api/analytics', analyticsRouter);
 
 app.get('/api/voices', async (req, res) => {
   try {

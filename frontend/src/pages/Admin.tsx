@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react';
-import { fetchAdminUsers, fetchAdminStats, createAdminUser, deleteAdminUser, manageAdminUser } from '../api';
+import {
+  fetchAdminUsers,
+  fetchAdminStats,
+  fetchAdminAnalytics,
+  createAdminUser,
+  deleteAdminUser,
+  manageAdminUser,
+} from '../api';
 import { useAuth } from '../AuthContext';
-import type { AdminUser, AdminStats } from '../types';
+import type { AdminUser, AdminStats, AdminAnalytics } from '../types';
 
 export default function Admin() {
   const { user: me } = useAuth();
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -25,10 +33,11 @@ export default function Admin() {
   const [manageMessage, setManageMessage] = useState<string | null>(null);
 
   function loadAll() {
-    return Promise.all([fetchAdminUsers(), fetchAdminStats()])
-      .then(([u, s]) => {
+    return Promise.all([fetchAdminUsers(), fetchAdminStats(), fetchAdminAnalytics()])
+      .then(([u, s, a]) => {
         setUsers(u);
         setStats(s);
+        setAnalytics(a);
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load admin data'));
   }
@@ -160,6 +169,62 @@ export default function Admin() {
             ))}
           </div>
         </div>
+      )}
+
+      {analytics && (
+        <>
+          <h2 style={{ marginBottom: 12 }}>Site Analytics</h2>
+          <div className="admin-stats-grid" style={{ marginBottom: 24 }}>
+            <StatCard label="Total Page Views" value={String(analytics.totalViews)} />
+            <StatCard label="Unique Visitors (All Time)" value={String(analytics.uniqueVisitorsAllTime)} />
+            <StatCard label="Unique Visitors Today" value={String(analytics.uniqueVisitorsToday)} />
+            <StatCard label="Active Now" value={String(analytics.activeNow)} />
+          </div>
+
+          <div className="form-row" style={{ marginBottom: 24, alignItems: 'stretch' }}>
+            <div className="settings-card" style={{ flex: 1 }}>
+              <h2>Top Pages</h2>
+              {analytics.topPages.length === 0 ? (
+                <p className="field-hint">No page views recorded yet.</p>
+              ) : (
+                analytics.topPages.map((p) => (
+                  <div key={p.path} className="admin-plan-breakdown__item" style={{ justifyContent: 'space-between', display: 'flex' }}>
+                    <span className="video-meta">{p.path}</span>
+                    <strong>{p.views}</strong>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="settings-card" style={{ flex: 1 }}>
+              <h2>Last 14 Days</h2>
+              {analytics.viewsByDay.length === 0 ? (
+                <p className="field-hint">No page views recorded yet.</p>
+              ) : (
+                <div className="admin-table-wrap">
+                  <table className="video-table admin-table">
+                    <thead>
+                      <tr>
+                        <th>Day</th>
+                        <th>Views</th>
+                        <th>Visitors</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analytics.viewsByDay.map((d) => (
+                        <tr key={d.day}>
+                          <td>{d.day}</td>
+                          <td>{d.views}</td>
+                          <td>{d.visitors}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
 
       <div className="settings-card">

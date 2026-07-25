@@ -139,8 +139,21 @@ const ready = (async () => {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS page_views (
+      "id" TEXT PRIMARY KEY,
+      "path" TEXT NOT NULL,
+      "visitorId" TEXT NOT NULL,
+      "userId" TEXT,
+      "referrer" TEXT,
+      "createdAt" TEXT NOT NULL
+    )
+  `);
+
   await pool.query('CREATE INDEX IF NOT EXISTS videos_userId_idx ON videos ("userId")');
   await pool.query('CREATE INDEX IF NOT EXISTS sessions_userId_idx ON sessions ("userId")');
+  await pool.query('CREATE INDEX IF NOT EXISTS page_views_createdAt_idx ON page_views ("createdAt")');
+  await pool.query('CREATE INDEX IF NOT EXISTS page_views_visitorId_idx ON page_views ("visitorId")');
 
   console.log('[db] connected to Supabase Postgres, schema ready');
 })();
@@ -339,6 +352,51 @@ async function getPaypalPlanByPaypalPlanId(paypalPlanId) {
   return rows[0] || null;
 }
 
+// --- analytics ---
+async function recordPageView(entry) {
+  const { text, values } = buildInsert('page_views', entry);
+  await pool.query(text, values);
+  return entry;
+}
+
+async function getAnalyticsSummary() {
+  const now = new Date();
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
+  const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
+
+  const [totalViews, uniqueAllTime, uniqueToday, activeNow, viewsByDay, topPages] = await Promise.all([
+    pool.query('SELECT COUNT(*)::int as count FROM page_views'),
+    pool.query('SELECT COUNT(DISTINCT "visitorId")::int as count FROM page_views'),
+    pool.query('SELECT COUNT(DISTINCT "visitorId")::int as count FROM page_views WHERE "createdAt" >= $1', [
+      startOfToday.toISOString(),
+    ]),
+    pool.query('SELECT COUNT(DISTINCT "visitorId")::int as count FROM page_views WHERE "createdAt" >= $1', [
+      fiveMinutesAgo,
+    ]),
+    pool.query(
+      `SELECT LEFT("createdAt", 10) as day, COUNT(*)::int as views, COUNT(DISTINCT "visitorId")::int as visitors
+       FROM page_views WHERE "createdAt" >= $1
+       GROUP BY day ORDER BY day ASC`,
+      [fourteenDaysAgo],
+    ),
+    pool.query(
+      `SELECT "path", COUNT(*)::int as views FROM page_views
+       GROUP BY "path" ORDER BY views DESC LIMIT 10`,
+    ),
+  ]);
+
+  return {
+    totalViews: totalViews.rows[0].count,
+    uniqueVisitorsAllTime: uniqueAllTime.rows[0].count,
+    uniqueVisitorsToday: uniqueToday.rows[0].count,
+    activeNow: activeNow.rows[0].count,
+    viewsByDay: viewsByDay.rows,
+    topPages: topPages.rows,
+  };
+}
+
 module.exports = {
   ready,
   STORAGE_PATH,
@@ -371,4 +429,6 @@ module.exports = {
   getPaypalPlan,
   savePaypalPlan,
   getPaypalPlanByPaypalPlanId,
+  recordPageView,
+  getAnalyticsSummary,
 };

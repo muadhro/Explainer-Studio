@@ -8,6 +8,7 @@ import type {
   BillingInfo,
   AdminUser,
   AdminStats,
+  AdminAnalytics,
 } from './types';
 
 const VIDEOS_URL = '/api/videos';
@@ -227,6 +228,21 @@ export async function fetchAdminUsers(): Promise<AdminUser[]> {
 export async function fetchAdminStats(): Promise<AdminStats> {
   const response = await apiFetch('/api/admin/stats');
   return handleResponse<AdminStats>(response);
+}
+
+export async function fetchAdminAnalytics(): Promise<AdminAnalytics> {
+  const response = await apiFetch('/api/admin/analytics');
+  return handleResponse<AdminAnalytics>(response);
+}
+
+// --- Analytics tracking (fire-and-forget, no auth required) ---
+export function trackPageView(path: string, visitorId: string): void {
+  fetch('/api/analytics', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ path, visitorId, referrer: document.referrer || undefined }),
+  }).catch(() => {});
 }
 
 export async function createAdminUser(payload: {

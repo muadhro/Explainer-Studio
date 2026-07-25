@@ -39,6 +39,15 @@ export interface AdminStats {
   googleLinkedCount: number;
 }
 
+export interface AdminAnalytics {
+  totalViews: number;
+  uniqueVisitorsAllTime: number;
+  uniqueVisitorsToday: number;
+  activeNow: number;
+  viewsByDay: { day: string; views: number; visitors: number }[];
+  topPages: { path: string; views: number }[];
+}
+
 export interface Session {
   id: string;
   userId: string;

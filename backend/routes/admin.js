@@ -208,4 +208,13 @@ router.get(
   }),
 );
 
+// GET /api/admin/analytics — site traffic summary (page views, visitors, top pages).
+router.get(
+  '/analytics',
+  asyncHandler(async (req, res) => {
+    const summary = await db.getAnalyticsSummary();
+    res.json(summary);
+  }),
+);
+
 module.exports = router;

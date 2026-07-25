@@ -1,6 +1,8 @@
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import { ThemeProvider } from './ThemeContext';
+import { trackPageView } from './api';
 import ProtectedRoute from './components/ProtectedRoute';
 import UserMenu from './components/UserMenu';
 import ThemeToggle from './components/ThemeToggle';
@@ -16,6 +18,26 @@ import Account from './pages/Account';
 import Admin from './pages/Admin';
 import Contact from './pages/Contact';
 import Legal from './pages/Legal';
+
+function getVisitorId(): string {
+  const key = 'explainer_visitor_id';
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
+function PageViewTracker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    trackPageView(location.pathname, getVisitorId());
+  }, [location.pathname]);
+
+  return null;
+}
 
 function Nav() {
   const { user, loading } = useAuth();
@@ -75,6 +97,7 @@ export default function App() {
       <AuthProvider>
         <ThemeProvider>
           <div className="app-shell">
+            <PageViewTracker />
             <Nav />
             <main>
               <Routes>
