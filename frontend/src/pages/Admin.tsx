@@ -67,7 +67,10 @@ export default function Admin() {
     }
   }
 
-  async function handleDeleteUser(id: string) {
+  async function handleDeleteUser(id: string, name: string, email: string) {
+    if (!window.confirm(`Remove ${name} (${email})? This permanently deletes their account and all their videos. This cannot be undone.`)) {
+      return;
+    }
     setDeletingId(id);
     try {
       await deleteAdminUser(id);
@@ -296,19 +299,19 @@ export default function Admin() {
                   <tr key={u.id}>
                     <td>
                       {u.id !== me?.id && (
-                        <>
-                          <button type="button" onClick={() => openManage(u)} style={{ marginRight: 8 }}>
+                        <div className="admin-row-actions">
+                          <button type="button" onClick={() => openManage(u)}>
                             Manage
                           </button>
                           <button
                             type="button"
                             className="danger-link"
-                            onClick={() => handleDeleteUser(u.id)}
+                            onClick={() => handleDeleteUser(u.id, u.fullName, u.email)}
                             disabled={deletingId === u.id}
                           >
                             {deletingId === u.id ? 'Removing…' : 'Remove'}
                           </button>
-                        </>
+                        </div>
                       )}
                     </td>
                     <td>

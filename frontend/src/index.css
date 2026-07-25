@@ -1690,6 +1690,17 @@ button[type='submit']:disabled {
   border-radius: 0;
 }
 
+.admin-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.admin-row-actions .danger-link {
+  padding: 0;
+}
+
 .admin-badge {
   display: inline-block;
   background: var(--bg-section);
