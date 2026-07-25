@@ -437,6 +437,9 @@ legend {
 /* --- Apple pill buttons --- */
 button[type='submit'],
 .pill-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: var(--blue);
   color: #fff;
   border: none;
@@ -449,6 +452,7 @@ button[type='submit'],
   min-width: 160px;
   transition: background 0.15s ease;
   font-family: inherit;
+  text-decoration: none;
 }
 
 button[type='submit']:hover:not(:disabled) {
@@ -677,7 +681,9 @@ button[type='submit']:disabled {
 
 /* --- Nav auth buttons --- */
 .nav-button {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-decoration: none;
   font-size: 13px;
   font-weight: 600;
@@ -1510,6 +1516,7 @@ button[type='submit']:disabled {
 /* --- Home page --- */
 .hero-actions {
   display: flex;
+  align-items: center;
   justify-content: center;
   gap: 12px;
   margin-top: 8px;
