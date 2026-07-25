@@ -12,11 +12,15 @@ const os = require('os');
 const path = require('path');
 
 const queue = [];
-let processing = false;
+let activeCount = 0;
+// Video rendering is CPU-bound (ffmpeg + sharp), so real parallelism is
+// bounded by actual cores, not an arbitrary number — default to the box's
+// core count, override via env if you move to a bigger/smaller server.
+const MAX_CONCURRENT_RENDERS = Math.max(1, Number(process.env.MAX_CONCURRENT_RENDERS) || os.cpus().length);
 
 function enqueue(videoId) {
   queue.push(videoId);
-  processNext();
+  dispatch();
 }
 
 /**
@@ -46,12 +50,16 @@ async function recoverPendingJobs() {
   }
 }
 
-async function processNext() {
-  if (processing) return;
-  const videoId = queue.shift();
-  if (!videoId) return;
+/** Pull as many queued jobs as there's capacity for and start them concurrently. */
+function dispatch() {
+  while (activeCount < MAX_CONCURRENT_RENDERS && queue.length > 0) {
+    const videoId = queue.shift();
+    activeCount += 1;
+    runJob(videoId);
+  }
+}
 
-  processing = true;
+async function runJob(videoId) {
   try {
     await processVideo(videoId);
   } catch (err) {
@@ -61,8 +69,8 @@ async function processNext() {
       errorMessage: err.message || String(err),
     }).catch((dbErr) => console.error(`[queue] failed to record failure for ${videoId}:`, dbErr.message));
   } finally {
-    processing = false;
-    processNext();
+    activeCount -= 1;
+    dispatch();
   }
 }
 
