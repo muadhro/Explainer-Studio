@@ -148,8 +148,11 @@ async function renderLocally(videoId, video, script, audioPath, videoPath) {
       // the Animated Explainer style has a light theme that photo scenes clash
       // with — convert any photo scene into a simple hero slide instead
       if (!slide && isAnimated) {
+        // course titles can run much longer than the "max 3 words" a slide
+        // title is meant to be — never render the full thing verbatim
+        const fallbackTitle = (video.title || '').split(/\s+/).slice(0, 4).join(' ');
         slide = normalizeSlide({
-          title: (scene.textOverlays && scene.textOverlays[0]) || video.title,
+          title: (scene.textOverlays && scene.textOverlays[0]) || fallbackTitle,
           subtitle: (scene.textOverlays && scene.textOverlays[1]) || '',
           layout: 'grid',
           sections: [

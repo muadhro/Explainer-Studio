@@ -45,6 +45,44 @@ function escapeXml(text) {
     .replace(/"/g, '&quot;');
 }
 
+function wrapText(text, maxChars) {
+  const words = String(text).split(/\s+/);
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    if ((line + ' ' + word).trim().length > maxChars && line) {
+      lines.push(line.trim());
+      line = word;
+    } else {
+      line = `${line} ${word}`;
+    }
+  }
+  if (line.trim()) lines.push(line.trim());
+  return lines;
+}
+
+/**
+ * Fit a headline into at most `maxLines`, shrinking font size before giving
+ * up and truncating — titles are meant to be "max 3 words" but nothing
+ * downstream enforces that, so this is what actually keeps long titles from
+ * running off the edges of the frame.
+ */
+function fitTitleLines(title, width, baseFontSize, maxLines) {
+  const CHAR_WIDTH_FACTOR = 0.58; // approx average glyph width for this bold sans-serif
+  const maxWidth = width * 0.86;
+  let fontSize = baseFontSize;
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const maxChars = Math.max(6, Math.floor(maxWidth / (fontSize * CHAR_WIDTH_FACTOR)));
+    const lines = wrapText(title, maxChars);
+    if (lines.length <= maxLines) return { lines, fontSize };
+    fontSize = Math.round(fontSize * 0.85);
+  }
+
+  const maxChars = Math.max(6, Math.floor(maxWidth / (fontSize * CHAR_WIDTH_FACTOR)));
+  return { lines: wrapText(title, maxChars).slice(0, maxLines), fontSize };
+}
+
 /** Precompute per-scene static geometry: item positions, dots, timings. */
 function buildScenePlan(slide, width, height, seed) {
   const rand = mulberry32(seed);
@@ -158,6 +196,15 @@ function buildFrameSvg({ slide, plan, iconData, width, height, t, duration }) {
   const sublabelSize = Math.round(height * 0.026);
   const headingSize = Math.round(height * 0.04);
 
+  // titles are meant to be "max 3 words" but nothing enforces that upstream,
+  // so shrink/wrap onto up to 2 lines rather than let long ones run off-frame
+  const { lines: titleLines, fontSize: fittedTitleSize } = fitTitleLines(slide.title, width, titleSize, 2);
+  const titleLineGap = fittedTitleSize * 1.15;
+  const titleBaseY = height * 0.13;
+  const titleStartY = titleLines.length > 1 ? titleBaseY - titleLineGap * 0.5 : titleBaseY;
+  const titleClipHeight = height * 0.24 + (titleLines.length > 1 ? titleLineGap : 0);
+  const subtitleY = height * 0.195 + (titleLines.length > 1 ? titleLineGap : 0);
+
   // background
   parts.push(`<defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
@@ -165,7 +212,7 @@ function buildFrameSvg({ slide, plan, iconData, width, height, t, duration }) {
       <stop offset="0.6" stop-color="${THEME.bgBottom}"/>
       <stop offset="1" stop-color="${THEME.bgAccent}"/>
     </linearGradient>
-    <clipPath id="titleClip"><rect x="0" y="0" width="${width * clamp01((t - 0.15) / 0.9)}" height="${height * 0.24}"/></clipPath>
+    <clipPath id="titleClip"><rect x="0" y="0" width="${width * clamp01((t - 0.15) / 0.9)}" height="${titleClipHeight}"/></clipPath>
   </defs>
   <rect width="${width}" height="${height}" fill="url(#bg)"/>`);
 
@@ -182,12 +229,18 @@ function buildFrameSvg({ slide, plan, iconData, width, height, t, duration }) {
 
   // title: wipe reveal, centered; subtitle fades in after
   const titleOp = clamp01((t - 0.1) / 0.3);
+  const titleTextElements = titleLines
+    .map(
+      (line, i) =>
+        `<text x="${width / 2}" y="${Math.round(titleStartY + i * titleLineGap)}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${fittedTitleSize}" font-weight="800" fill="${THEME.ink}">${escapeXml(line)}</text>`,
+    )
+    .join('\n    ');
   parts.push(`<g clip-path="url(#titleClip)" opacity="${titleOp}">
-    <text x="${width / 2}" y="${height * 0.13}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${titleSize}" font-weight="800" fill="${THEME.ink}">${escapeXml(slide.title)}</text>
+    ${titleTextElements}
   </g>`);
   if (slide.subtitle) {
     const subOp = clamp01((t - 0.7) / 0.4);
-    parts.push(`<text x="${width / 2}" y="${height * 0.195}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${subtitleSize}" font-weight="600" fill="${THEME.accent}" opacity="${subOp}" letter-spacing="1">${escapeXml(slide.subtitle.toUpperCase())}</text>`);
+    parts.push(`<text x="${width / 2}" y="${subtitleY}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${subtitleSize}" font-weight="600" fill="${THEME.accent}" opacity="${subOp}" letter-spacing="1">${escapeXml(slide.subtitle.toUpperCase())}</text>`);
   }
 
   // split headings
