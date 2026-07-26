@@ -9,6 +9,7 @@ const {
   clamp01,
   escapeXml,
   fitTitleLines,
+  wrapText,
 } = require('./animatedService');
 
 // Cream "paper" whiteboard, dark ink strokes, two marker accent colors
@@ -284,6 +285,64 @@ function buildFrameSvg({ slide, plan, iconGeometry, width, height, t, duration }
     const p = easeOutCubic((t - h.appear) / 0.4);
     if (p <= 0) continue;
     parts.push(`<text x="${h.x}" y="${height * 0.28}" text-anchor="middle" font-family="${fontStack}" font-size="${headingSize}" font-weight="700" fill="${THEME.inkSoft}" opacity="${p}">${escapeXml(h.text)}</text>`);
+  }
+
+  // quiz recap: wrapped question, then handwritten choices fade in one by
+  // one; the correct choice gets a hand-drawn checkmark using the same
+  // stroke-dasharray progressive-reveal technique used for icon strokes,
+  // just applied to two short line segments instead of a fetched icon
+  if (plan.quiz) {
+    const questionSize = Math.round(height * 0.05);
+    const choiceSize = Math.round(height * 0.038);
+    const qLines = wrapText(plan.quiz.question, Math.floor((width * 0.78) / (questionSize * 0.5)));
+    const qStartY = height * 0.34;
+    const qLineGap = questionSize * 1.25;
+    const qOp = clamp01((t - 0.9) / 0.4);
+    if (qOp > 0) {
+      qLines.forEach((line, i) => {
+        parts.push(`<text x="${width / 2}" y="${qStartY + i * qLineGap}" text-anchor="middle" font-family="${fontStack}" font-size="${questionSize}" font-weight="700" fill="${THEME.ink}" opacity="${qOp}">${escapeXml(line)}</text>`);
+      });
+    }
+
+    const choicesTop = qStartY + qLines.length * qLineGap + height * 0.06;
+    const choiceH = height * 0.085;
+    const choiceGap = height * 0.02;
+    const choiceW = width * 0.6;
+    const choiceX = (width - choiceW) / 2;
+
+    plan.quiz.choices.forEach((choice, i) => {
+      const p = clamp01((t - choice.appear) / 0.4);
+      if (p <= 0) return;
+      const y = choicesTop + i * (choiceH + choiceGap);
+      parts.push(`<text x="${choiceX}" y="${y + choiceH * 0.62}" font-family="${fontStack}" font-size="${choiceSize}" font-weight="700" fill="${THEME.label}" opacity="${p}">${escapeXml(choice.text)}</text>`);
+
+      if (choice.correct) {
+        const revealP = clamp01((t - plan.quiz.revealAppear) / 0.5);
+        if (revealP > 0) {
+          // there's no card/box to anchor to here (unlike the other two
+          // engines) — place the checkmark right after the handwritten
+          // text itself, using the same char-width estimate used elsewhere
+          // in this codebase for un-measured SVG text (fitTitleLines)
+          const textWidth = choice.text.length * choiceSize * 0.56;
+          const cx = choiceX + textWidth + width * 0.03;
+          const cy = y + choiceH * 0.5;
+          const s = choiceH * 0.3;
+          const seg1 = { x1: cx - s, y1: cy, x2: cx - s * 0.35, y2: cy + s * 0.55 };
+          const seg2 = { x1: cx - s * 0.35, y1: cy + s * 0.55, x2: cx + s, y2: cy - s * 0.65 };
+          const len1 = Math.hypot(seg1.x2 - seg1.x1, seg1.y2 - seg1.y1);
+          const len2 = Math.hypot(seg2.x2 - seg2.x1, seg2.y2 - seg2.y1);
+          const drawn = revealP * (len1 + len2);
+          const draw1 = Math.min(drawn, len1);
+          const draw2 = Math.max(0, Math.min(drawn - len1, len2));
+          if (draw1 > 0) {
+            parts.push(`<line x1="${seg1.x1}" y1="${seg1.y1}" x2="${seg1.x2}" y2="${seg1.y2}" stroke="${THEME.accent}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${len1} ${len1}" stroke-dashoffset="${len1 - draw1}"/>`);
+          }
+          if (draw2 > 0) {
+            parts.push(`<line x1="${seg2.x1}" y1="${seg2.y1}" x2="${seg2.x2}" y2="${seg2.y2}" stroke="${THEME.accent}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${len2} ${len2}" stroke-dashoffset="${len2 - draw2}"/>`);
+          }
+        }
+      }
+    });
   }
 
   // resolve item positions — whiteboard ink is static once drawn (no orbit

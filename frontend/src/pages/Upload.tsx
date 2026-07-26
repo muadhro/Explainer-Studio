@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { createVideo, listVoices, fetchBilling } from '../api';
 import AppleSelect from '../components/AppleSelect';
 import { useAuth } from '../AuthContext';
-import type { AnimationStyle, VideoQuality, Voice, BillingInfo } from '../types';
+import type { AnimationStyle, VideoQuality, Voice, BillingInfo, ContentDepth } from '../types';
 
 const ANIMATION_STYLES: AnimationStyle[] = [
   'Animated Explainer',
@@ -52,6 +52,7 @@ export default function Upload() {
   const [animationStyle, setAnimationStyle] = useState<AnimationStyle>(ANIMATION_STYLES[0]);
   const [quality, setQuality] = useState<VideoQuality>('720p');
   const [targetDurationMinutes, setTargetDurationMinutes] = useState(2);
+  const [contentDepth, setContentDepth] = useState<ContentDepth>('standard');
   const [voices, setVoices] = useState<Voice[]>([]);
   const [voiceId, setVoiceId] = useState('');
   const [playing, setPlaying] = useState(false);
@@ -131,6 +132,7 @@ export default function Upload() {
         quality,
         voiceId: voiceId || undefined,
         targetDurationMinutes,
+        contentDepth,
       });
       navigate('/dashboard');
     } catch (err) {
@@ -248,6 +250,24 @@ export default function Upload() {
             );
           })}
         </fieldset>
+
+        <div className="toggle-row">
+          <div>
+            <div className="toggle-row__label">Deep Dive</div>
+            <div className="field-hint">
+              Richer detail, illustrative examples, and a recap quiz — may run longer than your selected length.
+            </div>
+          </div>
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={contentDepth === 'deep-dive'}
+              disabled={submitting}
+              onChange={(e) => setContentDepth(e.target.checked ? 'deep-dive' : 'standard')}
+            />
+            <span className="switch__track" />
+          </label>
+        </div>
 
         {error && <div className="error-text">{error}</div>}
 

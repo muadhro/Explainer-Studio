@@ -107,6 +107,9 @@ const ready = (async () => {
   // migration for databases created before videos had a selectable target length
   await pool.query(`ALTER TABLE videos ADD COLUMN IF NOT EXISTS "targetDurationMinutes" INTEGER`);
 
+  // migration for databases created before Deep Dive content mode existed
+  await pool.query(`ALTER TABLE videos ADD COLUMN IF NOT EXISTS "contentDepth" TEXT`);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS password_resets (
       "token" TEXT PRIMARY KEY,

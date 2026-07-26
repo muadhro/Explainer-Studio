@@ -1,4 +1,5 @@
 export type AnimationStyle = 'Animated Explainer' | 'Kinetic Typography' | 'Motion Graphics' | 'Flat Design 2D' | 'Whiteboard Animation';
+export type ContentDepth = 'standard' | 'deep-dive';
 
 export interface User {
   id: string;
@@ -112,6 +113,7 @@ export interface Video {
   createdAt: string;
   completedAt: string | null;
   errorMessage: string | null;
+  contentDepth: ContentDepth | null;
 }
 
 export interface CreateVideoRequest {
@@ -121,6 +123,7 @@ export interface CreateVideoRequest {
   quality: VideoQuality;
   voiceId?: string;
   targetDurationMinutes?: number;
+  contentDepth?: ContentDepth;
 }
 
 export interface CreateVideoResponse {

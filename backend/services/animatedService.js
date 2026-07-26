@@ -153,6 +153,17 @@ function buildScenePlan(slide, width, height, seed) {
         });
       });
     });
+  } else if (slide.layout === 'quiz') {
+    // Deep Dive recap: question reveals, then answer choices stagger in,
+    // then an extra beat before the correct one is highlighted
+    const choiceStagger = 0.5;
+    const choices = slide.quiz.choices.map((c, i) => ({ ...c, appear: appearBase + i * choiceStagger }));
+    const lastChoiceAppear = appearBase + (choices.length - 1) * choiceStagger;
+    plan.quiz = {
+      question: slide.quiz.question,
+      choices,
+      revealAppear: lastChoiceAppear + choiceStagger + 0.4,
+    };
   } else {
     // grid -> hero + orbit: first item center, the rest orbit on a dotted ring
     const cx = width / 2;
@@ -257,6 +268,43 @@ function buildFrameSvg({ slide, plan, iconData, width, height, t, duration }) {
     if (p > 0) {
       parts.push(`<circle cx="${plan.orbitRing.cx}" cy="${plan.orbitRing.cy}" r="${plan.orbitRing.r}" fill="none" stroke="${THEME.inkSoft}" stroke-width="1.5" stroke-dasharray="1 10" stroke-linecap="round" opacity="${0.55 * p}"/>`);
     }
+  }
+
+  // quiz recap: wrapped question, then staggered answer-choice cards, then
+  // the correct one gets a checkmark after an extra "reveal" beat
+  if (plan.quiz) {
+    const questionSize = Math.round(height * 0.05);
+    const choiceSize = Math.round(height * 0.036);
+    const qLines = wrapText(plan.quiz.question, Math.floor((width * 0.78) / (questionSize * 0.55)));
+    const qStartY = height * 0.34;
+    const qLineGap = questionSize * 1.25;
+    const qOp = clamp01((t - 0.9) / 0.4);
+    if (qOp > 0) {
+      qLines.forEach((line, i) => {
+        parts.push(`<text x="${width / 2}" y="${qStartY + i * qLineGap}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${questionSize}" font-weight="700" fill="${THEME.ink}" opacity="${qOp}">${escapeXml(line)}</text>`);
+      });
+    }
+
+    const choicesTop = qStartY + qLines.length * qLineGap + height * 0.06;
+    const choiceH = height * 0.09;
+    const choiceGap = height * 0.02;
+    const choiceW = width * 0.6;
+    const choiceX = (width - choiceW) / 2;
+
+    plan.quiz.choices.forEach((choice, i) => {
+      const p = easeOutCubic((t - choice.appear) / 0.4);
+      if (p <= 0) return;
+      const y = choicesTop + i * (choiceH + choiceGap);
+      const highlightP = choice.correct ? easeOutCubic((t - plan.quiz.revealAppear) / 0.4) : 0;
+      parts.push(`<rect x="${choiceX}" y="${y}" width="${choiceW}" height="${choiceH}" rx="${choiceH * 0.25}" fill="#ffffff" stroke="${highlightP > 0 ? THEME.accent : '#dbe5ea'}" stroke-width="${highlightP > 0 ? 3 : 2}" opacity="${p}"/>`);
+      parts.push(`<text x="${choiceX + width * 0.02}" y="${y + choiceH * 0.62}" font-family="Segoe UI, Arial, sans-serif" font-size="${choiceSize}" font-weight="700" fill="${THEME.ink}" opacity="${p}">${escapeXml(choice.text)}</text>`);
+      if (choice.correct && highlightP > 0) {
+        const cx = choiceX + choiceW - width * 0.035;
+        const cy = y + choiceH / 2;
+        const s = choiceH * 0.22;
+        parts.push(`<polyline points="${cx - s},${cy} ${cx - s * 0.25},${cy + s * 0.7} ${cx + s},${cy - s * 0.8}" fill="none" stroke="${THEME.accent}" stroke-width="${Math.max(3, s * 0.25)}" stroke-linecap="round" stroke-linejoin="round" opacity="${highlightP}"/>`);
+      }
+    });
   }
 
   // resolve current item positions (orbiters move continuously)
@@ -388,6 +436,7 @@ module.exports = {
   THEME,
   FPS,
   buildScenePlan,
+  buildFrameSvg,
   mulberry32,
   easeOutCubic,
   clamp01,

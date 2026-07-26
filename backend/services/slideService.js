@@ -56,12 +56,61 @@ function escapeXml(text) {
     .replace(/"/g, '&quot;');
 }
 
+function wrapText(text, maxChars) {
+  const words = String(text).split(/\s+/);
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    if ((line + ' ' + word).trim().length > maxChars && line) {
+      lines.push(line.trim());
+      line = word;
+    } else {
+      line = `${line} ${word}`;
+    }
+  }
+  if (line.trim()) lines.push(line.trim());
+  return lines;
+}
+
+/** Validate/truncate a Deep Dive recap-quiz slide (its own shape — no sections/items). */
+function normalizeQuizSlide(slide) {
+  const quiz = slide.quiz || {};
+  const question = String(quiz.question || '').slice(0, 90);
+  let choices = (Array.isArray(quiz.choices) ? quiz.choices : [])
+    .slice(0, 4)
+    .map((c) => ({ text: String((c && c.text) || '').slice(0, 40), correct: Boolean(c && c.correct) }))
+    .filter((c) => c.text);
+
+  if (!question || choices.length < 2) return null;
+
+  // exactly one correct choice — coerce rather than reject the whole slide
+  // over a malformed flag from Claude (matches this function's usual
+  // truncate-and-continue philosophy elsewhere)
+  const correctCount = choices.filter((c) => c.correct).length;
+  if (correctCount !== 1) {
+    const firstCorrectIndex = choices.findIndex((c) => c.correct);
+    const keepIndex = firstCorrectIndex === -1 ? 0 : firstCorrectIndex;
+    choices = choices.map((c, i) => ({ ...c, correct: i === keepIndex }));
+  }
+
+  return {
+    title: String(slide.title || 'Quick Recap').slice(0, 30),
+    subtitle: String(slide.subtitle || '').slice(0, 40),
+    layout: 'quiz',
+    sections: [],
+    quiz: { question, choices },
+  };
+}
+
 /**
  * Normalize a slide spec from Claude into a bounded, render-safe shape.
- * Layouts: "grid" (one group), "split" (two compared groups), "flow" (process steps).
+ * Layouts: "grid" (one group), "split" (two compared groups), "flow" (process steps),
+ * "quiz" (Deep Dive recap question — its own shape, see normalizeQuizSlide).
  */
 function normalizeSlide(slide) {
-  const layout = ['grid', 'split', 'flow'].includes(slide.layout) ? slide.layout : 'grid';
+  const layout = ['grid', 'split', 'flow', 'quiz'].includes(slide.layout) ? slide.layout : 'grid';
+  if (layout === 'quiz') return normalizeQuizSlide(slide);
+
   let sections = Array.isArray(slide.sections) ? slide.sections : [];
   sections = sections.slice(0, layout === 'split' ? 2 : 1).map((s) => ({
     heading: String(s.heading || '').slice(0, 28),
@@ -156,10 +205,65 @@ function dotDecoration(width, height, theme) {
 }
 
 /**
+ * Render the Deep Dive recap-quiz slide: question + answer choices, correct
+ * one highlighted with a checkmark. No items/icons — shown all at once
+ * (there's no natural "reveal step" progression for a quiz card).
+ */
+async function renderQuizStill({ slide, theme, width, height, outputPath }) {
+  const margin = width * 0.08;
+  const titleSize = Math.round(height * 0.08);
+  const questionSize = Math.round(height * 0.048);
+  const choiceSize = Math.round(height * 0.038);
+  const parts = [];
+
+  parts.push(`<text x="${width / 2}" y="${height * 0.14}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${titleSize}" font-weight="800" fill="${theme.title}">${escapeXml(slide.title)}</text>`);
+  parts.push(dotDecoration(width, height, theme));
+
+  const questionLines = wrapText(slide.quiz.question, Math.floor((width - margin * 2) / (questionSize * 0.52)));
+  const qStartY = height * 0.26;
+  const qLineGap = questionSize * 1.3;
+  questionLines.forEach((line, i) => {
+    parts.push(`<text x="${width / 2}" y="${qStartY + i * qLineGap}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${questionSize}" font-weight="700" fill="${theme.heading}">${escapeXml(line)}</text>`);
+  });
+
+  const choicesTop = qStartY + questionLines.length * qLineGap + height * 0.06;
+  const choiceH = height * 0.11;
+  const choiceGap = height * 0.025;
+  const choiceW = width - margin * 2;
+
+  slide.quiz.choices.forEach((choice, i) => {
+    const y = choicesTop + i * (choiceH + choiceGap);
+    parts.push(`<rect x="${margin}" y="${y}" width="${choiceW}" height="${choiceH}" rx="${choiceH * 0.22}" fill="${choice.correct ? 'rgba(124,232,124,0.16)' : 'rgba(255,255,255,0.06)'}" stroke="${choice.correct ? theme.label : theme.divider}" stroke-width="${choice.correct ? 3 : 1.5}"/>`);
+    parts.push(`<text x="${margin + width * 0.03}" y="${y + choiceH * 0.62}" font-family="Segoe UI, Arial, sans-serif" font-size="${choiceSize}" font-weight="700" fill="${theme.label}">${escapeXml(choice.text)}</text>`);
+    if (choice.correct) {
+      const cx = margin + choiceW - width * 0.045;
+      const cy = y + choiceH / 2;
+      const s = choiceH * 0.22;
+      parts.push(`<polyline points="${cx - s},${cy} ${cx - s * 0.25},${cy + s * 0.7} ${cx + s},${cy - s * 0.8}" fill="none" stroke="${theme.label}" stroke-width="${Math.max(3, s * 0.22)}" stroke-linecap="round" stroke-linejoin="round"/>`);
+    }
+  });
+
+  const svg = Buffer.from(`<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="${theme.bgTop}"/><stop offset="1" stop-color="${theme.bgBottom}"/>
+  </linearGradient></defs>
+  <rect width="${width}" height="${height}" fill="url(#bg)"/>
+  ${parts.join('\n  ')}
+</svg>`);
+
+  await sharp(svg).png().toFile(outputPath);
+  return outputPath;
+}
+
+/**
  * Render one still of the slide with the first `visibleCount` items shown.
  * Icons are composited by sharp separately (SVG buffers from Iconify).
  */
 async function renderSlideStill({ slide, iconBuffers, theme, width, height, visibleCount, outputPath }) {
+  if (slide.layout === 'quiz') {
+    return renderQuizStill({ slide, theme, width, height, outputPath });
+  }
+
   const items = computeLayout(slide, width, height);
   const visible = items.slice(0, visibleCount);
 
