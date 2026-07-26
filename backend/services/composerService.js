@@ -5,8 +5,8 @@ const { spawn } = require('child_process');
 const sharp = require('sharp');
 const ffmpegPath = require('ffmpeg-static');
 const { renderSlideStill } = require('./slideService');
-const { renderAnimatedSceneClip } = require('./animatedService');
-const { renderWhiteboardSceneClip } = require('./whiteboardService');
+const { renderAnimatedSceneClip, getTheme: getAnimatedTheme } = require('./animatedService');
+const { renderWhiteboardSceneClip, getTheme: getWhiteboardTheme } = require('./whiteboardService');
 
 const FPS = 25;
 
@@ -246,9 +246,14 @@ async function renderSceneClip(scenePng, duration, width, height, outputPath) {
  * Full local render: scenes -> stills -> clips -> concat -> mux narration audio.
  * Scene durations are rescaled so total video length matches the narration length.
  */
-async function composeVideo({ scenes, sceneAssets, audioPath, quality, animationStyle, outputPath, onProgress }) {
+async function composeVideo({ scenes, sceneAssets, audioPath, quality, animationStyle, animatedThemeName, outputPath, onProgress }) {
   const { width, height } = QUALITY_DIMENSIONS[quality] || QUALITY_DIMENSIONS['720p'];
   const theme = STYLE_THEMES[animationStyle] || STYLE_THEMES['Motion Graphics'];
+  // resolved once per video (not per scene) so every scene in a video stays
+  // visually consistent — animatedThemeName is picked randomly upstream in
+  // videoQueue.js; falls back to the default palette if omitted
+  const animatedTheme = getAnimatedTheme(animatedThemeName);
+  const whiteboardTheme = getWhiteboardTheme();
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'explainer-'));
 
   try {
@@ -273,6 +278,7 @@ async function composeVideo({ scenes, sceneAssets, audioPath, quality, animation
           duration,
           outputPath: clipPath,
           seed: i + 1,
+          theme: animatedTheme,
         });
         clipPaths.push(clipPath);
       } else if (assets.slide && animationStyle === 'Whiteboard Animation') {
@@ -286,6 +292,7 @@ async function composeVideo({ scenes, sceneAssets, audioPath, quality, animation
           duration,
           outputPath: clipPath,
           seed: i + 1,
+          theme: whiteboardTheme,
         });
         clipPaths.push(clipPath);
       } else if (assets.slide) {

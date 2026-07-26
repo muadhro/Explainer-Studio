@@ -5,6 +5,7 @@ const { generateVoiceover } = require('../services/elevenLabsService');
 const { fetchImageForScene, fetchIcon } = require('../services/imageService');
 const { composeVideo } = require('../services/composerService');
 const { getTheme, normalizeSlide } = require('../services/slideService');
+const { THEME_NAMES: ANIMATED_EXPLAINER_THEME_NAMES } = require('../services/animatedService');
 const fal = require('../services/falService');
 const fileService = require('../services/fileService');
 const fs = require('fs');
@@ -158,6 +159,12 @@ async function renderLocally(videoId, video, script, audioPath, videoPath) {
     const isAnimated = video.animationStyle === 'Animated Explainer';
     const isWhiteboard = video.animationStyle === 'Whiteboard Animation';
     const slideTheme = getTheme(video.animationStyle);
+    // one random background palette per video (not per scene, so every
+    // scene in a video stays visually consistent) — a plain local variable
+    // per renderLocally call, so concurrent renders never share state
+    const animatedThemeName = isAnimated
+      ? ANIMATED_EXPLAINER_THEME_NAMES[Math.floor(Math.random() * ANIMATED_EXPLAINER_THEME_NAMES.length)]
+      : undefined;
     // animated style uses dark-ink outline icons on a light background;
     // whiteboard needs genuine single-stroke icons so they can be drawn on
     // progressively (a filled icon just renders as a solid blob)
@@ -214,6 +221,7 @@ async function renderLocally(videoId, video, script, audioPath, videoPath) {
       audioPath,
       quality: video.quality,
       animationStyle: video.animationStyle,
+      animatedThemeName,
       outputPath: videoPath,
       onProgress: (pct) => updateProgress(videoId, 55 + Math.round(pct * 0.43)),
     });

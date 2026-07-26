@@ -12,16 +12,24 @@ const {
   wrapText,
 } = require('./animatedService');
 
-// Cream "paper" whiteboard, dark ink strokes, two marker accent colors
-const THEME = {
-  bg: '#fdfbf4',
-  grid: '#eae4d2',
-  ink: '#242424',
-  inkSoft: '#5b5b5b',
-  accent: '#2563eb',
-  accent2: '#dc2626',
-  label: '#242424',
+// Cream "paper" whiteboard, dark ink strokes, two marker accent colors.
+// Only one palette today (no random variety for this style yet), but kept
+// as a named map + getTheme() for parity with animatedService.js's pattern.
+const THEMES = {
+  Mint: {
+    bg: '#fdfbf4',
+    grid: '#eae4d2',
+    ink: '#242424',
+    inkSoft: '#5b5b5b',
+    accent: '#2563eb',
+    accent2: '#dc2626',
+    label: '#242424',
+  },
 };
+const THEME = THEMES.Mint; // back-compat alias — read-only, never mutated
+function getTheme(name) {
+  return THEMES[name] || THEMES.Mint;
+}
 
 const DRAW_DURATION = 1.0; // seconds for a single icon to fully "draw" on
 
@@ -237,7 +245,7 @@ function penMarker(tip, color) {
 }
 
 /** Build one whiteboard SVG frame at time t (seconds). */
-function buildFrameSvg({ slide, plan, iconGeometry, width, height, t, duration }) {
+function buildFrameSvg({ slide, plan, iconGeometry, width, height, t, duration, theme = THEME }) {
   const parts = [];
   const titleSize = Math.round(height * 0.078);
   const subtitleSize = Math.round(height * 0.038);
@@ -256,11 +264,11 @@ function buildFrameSvg({ slide, plan, iconGeometry, width, height, t, duration }
   // paper background + faint grid
   parts.push(`<defs>
     <pattern id="grid" width="${height * 0.045}" height="${height * 0.045}" patternUnits="userSpaceOnUse">
-      <path d="M ${height * 0.045} 0 L 0 0 0 ${height * 0.045}" fill="none" stroke="${THEME.grid}" stroke-width="1"/>
+      <path d="M ${height * 0.045} 0 L 0 0 0 ${height * 0.045}" fill="none" stroke="${theme.grid}" stroke-width="1"/>
     </pattern>
     <clipPath id="titleClip"><rect x="0" y="0" width="${width * clamp01((t - 0.15) / 0.9)}" height="${titleClipHeight}"/></clipPath>
   </defs>
-  <rect width="${width}" height="${height}" fill="${THEME.bg}"/>
+  <rect width="${width}" height="${height}" fill="${theme.bg}"/>
   <rect width="${width}" height="${height}" fill="url(#grid)" opacity="0.5"/>`);
 
   // title: wipe reveal, centered; subtitle fades in after
@@ -268,7 +276,7 @@ function buildFrameSvg({ slide, plan, iconGeometry, width, height, t, duration }
   const titleTextElements = titleLines
     .map(
       (line, i) =>
-        `<text x="${width / 2}" y="${Math.round(titleStartY + i * titleLineGap)}" text-anchor="middle" font-family="${fontStack}" font-size="${fittedTitleSize}" font-weight="700" fill="${THEME.ink}">${escapeXml(line)}</text>`,
+        `<text x="${width / 2}" y="${Math.round(titleStartY + i * titleLineGap)}" text-anchor="middle" font-family="${fontStack}" font-size="${fittedTitleSize}" font-weight="700" fill="${theme.ink}">${escapeXml(line)}</text>`,
     )
     .join('\n    ');
   parts.push(`<g clip-path="url(#titleClip)" opacity="${titleOp}">
@@ -276,7 +284,7 @@ function buildFrameSvg({ slide, plan, iconGeometry, width, height, t, duration }
   </g>`);
   if (slide.subtitle) {
     const subOp = clamp01((t - 0.7) / 0.4);
-    parts.push(`<text x="${width / 2}" y="${subtitleY}" text-anchor="middle" font-family="${fontStack}" font-size="${subtitleSize}" font-weight="400" fill="${THEME.accent}" opacity="${subOp}">${escapeXml(slide.subtitle)}</text>`);
+    parts.push(`<text x="${width / 2}" y="${subtitleY}" text-anchor="middle" font-family="${fontStack}" font-size="${subtitleSize}" font-weight="400" fill="${theme.accent}" opacity="${subOp}">${escapeXml(slide.subtitle)}</text>`);
   }
 
   // split headings
@@ -284,7 +292,7 @@ function buildFrameSvg({ slide, plan, iconGeometry, width, height, t, duration }
     if (!h.text) continue;
     const p = easeOutCubic((t - h.appear) / 0.4);
     if (p <= 0) continue;
-    parts.push(`<text x="${h.x}" y="${height * 0.28}" text-anchor="middle" font-family="${fontStack}" font-size="${headingSize}" font-weight="700" fill="${THEME.inkSoft}" opacity="${p}">${escapeXml(h.text)}</text>`);
+    parts.push(`<text x="${h.x}" y="${height * 0.28}" text-anchor="middle" font-family="${fontStack}" font-size="${headingSize}" font-weight="700" fill="${theme.inkSoft}" opacity="${p}">${escapeXml(h.text)}</text>`);
   }
 
   // quiz recap: wrapped question, then handwritten choices fade in one by
@@ -300,7 +308,7 @@ function buildFrameSvg({ slide, plan, iconGeometry, width, height, t, duration }
     const qOp = clamp01((t - 0.9) / 0.4);
     if (qOp > 0) {
       qLines.forEach((line, i) => {
-        parts.push(`<text x="${width / 2}" y="${qStartY + i * qLineGap}" text-anchor="middle" font-family="${fontStack}" font-size="${questionSize}" font-weight="700" fill="${THEME.ink}" opacity="${qOp}">${escapeXml(line)}</text>`);
+        parts.push(`<text x="${width / 2}" y="${qStartY + i * qLineGap}" text-anchor="middle" font-family="${fontStack}" font-size="${questionSize}" font-weight="700" fill="${theme.ink}" opacity="${qOp}">${escapeXml(line)}</text>`);
       });
     }
 
@@ -314,7 +322,7 @@ function buildFrameSvg({ slide, plan, iconGeometry, width, height, t, duration }
       const p = clamp01((t - choice.appear) / 0.4);
       if (p <= 0) return;
       const y = choicesTop + i * (choiceH + choiceGap);
-      parts.push(`<text x="${choiceX}" y="${y + choiceH * 0.62}" font-family="${fontStack}" font-size="${choiceSize}" font-weight="700" fill="${THEME.label}" opacity="${p}">${escapeXml(choice.text)}</text>`);
+      parts.push(`<text x="${choiceX}" y="${y + choiceH * 0.62}" font-family="${fontStack}" font-size="${choiceSize}" font-weight="700" fill="${theme.label}" opacity="${p}">${escapeXml(choice.text)}</text>`);
 
       if (choice.correct) {
         const revealP = clamp01((t - plan.quiz.revealAppear) / 0.5);
@@ -335,10 +343,10 @@ function buildFrameSvg({ slide, plan, iconGeometry, width, height, t, duration }
           const draw1 = Math.min(drawn, len1);
           const draw2 = Math.max(0, Math.min(drawn - len1, len2));
           if (draw1 > 0) {
-            parts.push(`<line x1="${seg1.x1}" y1="${seg1.y1}" x2="${seg1.x2}" y2="${seg1.y2}" stroke="${THEME.accent}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${len1} ${len1}" stroke-dashoffset="${len1 - draw1}"/>`);
+            parts.push(`<line x1="${seg1.x1}" y1="${seg1.y1}" x2="${seg1.x2}" y2="${seg1.y2}" stroke="${theme.accent}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${len1} ${len1}" stroke-dashoffset="${len1 - draw1}"/>`);
           }
           if (draw2 > 0) {
-            parts.push(`<line x1="${seg2.x1}" y1="${seg2.y1}" x2="${seg2.x2}" y2="${seg2.y2}" stroke="${THEME.accent}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${len2} ${len2}" stroke-dashoffset="${len2 - draw2}"/>`);
+            parts.push(`<line x1="${seg2.x1}" y1="${seg2.y1}" x2="${seg2.x2}" y2="${seg2.y2}" stroke="${theme.accent}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${len2} ${len2}" stroke-dashoffset="${len2 - draw2}"/>`);
           }
         }
       }
@@ -368,8 +376,8 @@ function buildFrameSvg({ slide, plan, iconGeometry, width, height, t, duration }
       const xFull = b.cx - b.iconSize * 0.75;
       const x2 = x1 + (xFull - x1) * p;
       const ah = height * 0.011;
-      parts.push(`<line x1="${x1}" y1="${y}" x2="${Math.max(x1, x2 - ah * 1.5)}" y2="${y}" stroke="${THEME.accent}" stroke-width="${height * 0.005}" stroke-linecap="round"/>`);
-      parts.push(`<polygon points="${x2},${y} ${x2 - ah * 2},${y - ah} ${x2 - ah * 2},${y + ah}" fill="${THEME.accent}"/>`);
+      parts.push(`<line x1="${x1}" y1="${y}" x2="${Math.max(x1, x2 - ah * 1.5)}" y2="${y}" stroke="${theme.accent}" stroke-width="${height * 0.005}" stroke-linecap="round"/>`);
+      parts.push(`<polygon points="${x2},${y} ${x2 - ah * 2},${y - ah} ${x2 - ah * 2},${y + ah}" fill="${theme.accent}"/>`);
     }
   }
 
@@ -386,21 +394,21 @@ function buildFrameSvg({ slide, plan, iconGeometry, width, height, t, duration }
       const { svg, tip } = renderIconAtProgress(geometry, drawnLength, transform);
       parts.push(svg);
       if (drawP < 1) {
-        parts.push(penMarker(tip, i % 2 === 0 ? THEME.accent : THEME.accent2));
+        parts.push(penMarker(tip, i % 2 === 0 ? theme.accent : theme.accent2));
       }
     } else {
       // no icon resolved — draw a simple placeholder ink circle instead
       const op = easeOutCubic(drawP);
-      parts.push(`<circle cx="${item.cx}" cy="${item.cy}" r="${s * 0.28}" fill="none" stroke="${THEME.ink}" stroke-width="3" opacity="${op}"/>`);
+      parts.push(`<circle cx="${item.cx}" cy="${item.cy}" r="${s * 0.28}" fill="none" stroke="${theme.ink}" stroke-width="3" opacity="${op}"/>`);
     }
 
     if (item.label) {
       const labelOp = clamp01((drawP - 0.85) / 0.15);
       if (labelOp > 0) {
         const labelY = item.cy + s * 0.62 + labelSize * 1.1;
-        parts.push(`<text x="${item.cx}" y="${labelY}" text-anchor="middle" font-family="${fontStack}" font-size="${labelSize}" font-weight="700" fill="${THEME.label}" opacity="${labelOp}">${escapeXml(item.label)}</text>`);
+        parts.push(`<text x="${item.cx}" y="${labelY}" text-anchor="middle" font-family="${fontStack}" font-size="${labelSize}" font-weight="700" fill="${theme.label}" opacity="${labelOp}">${escapeXml(item.label)}</text>`);
         if (item.sublabel) {
-          parts.push(`<text x="${item.cx}" y="${labelY + sublabelSize * 1.3}" text-anchor="middle" font-family="${fontStack}" font-size="${sublabelSize}" fill="${THEME.inkSoft}" opacity="${labelOp}">${escapeXml(item.sublabel)}</text>`);
+          parts.push(`<text x="${item.cx}" y="${labelY + sublabelSize * 1.3}" text-anchor="middle" font-family="${fontStack}" font-size="${sublabelSize}" fill="${theme.inkSoft}" opacity="${labelOp}">${escapeXml(item.sublabel)}</text>`);
         }
       }
     }
@@ -411,15 +419,15 @@ function buildFrameSvg({ slide, plan, iconGeometry, width, height, t, duration }
   const fadeOut = clamp01((t - (duration - 0.35)) / 0.35);
   const fade = Math.max(fadeIn, fadeOut);
   if (fade > 0.001) {
-    parts.push(`<rect width="${width}" height="${height}" fill="${THEME.bg}" opacity="${fade}"/>`);
+    parts.push(`<rect width="${width}" height="${height}" fill="${theme.bg}" opacity="${fade}"/>`);
   }
 
   return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">${parts.join('\n')}</svg>`;
 }
 
 /** Render a full whiteboard scene to an mp4 clip by piping frames into ffmpeg. */
-async function renderWhiteboardSceneClip({ slide, iconBuffers, width, height, duration, outputPath, seed }) {
-  const plan = buildScenePlan(slide, width, height, seed);
+async function renderWhiteboardSceneClip({ slide, iconBuffers, width, height, duration, outputPath, seed, theme = THEME }) {
+  const plan = buildScenePlan(slide, width, height, seed, theme.dotColors);
   const iconGeometry = plan.items.map((_, i) => parseIconGeometry(iconBuffers[i]));
 
   const frameCount = Math.max(FPS, Math.round(duration * FPS));
@@ -442,7 +450,7 @@ async function renderWhiteboardSceneClip({ slide, iconBuffers, width, height, du
     (async () => {
       for (let f = 0; f < frameCount; f++) {
         const t = f / FPS;
-        const svg = buildFrameSvg({ slide, plan, iconGeometry, width, height, t, duration });
+        const svg = buildFrameSvg({ slide, plan, iconGeometry, width, height, t, duration, theme });
         const png = await sharp(Buffer.from(svg)).png().toBuffer();
         if (!proc.stdin.write(png)) {
           await new Promise((r) => proc.stdin.once('drain', r));
@@ -456,4 +464,4 @@ async function renderWhiteboardSceneClip({ slide, iconBuffers, width, height, du
   });
 }
 
-module.exports = { renderWhiteboardSceneClip, buildFrameSvg, buildScenePlan, parseIconGeometry, THEME };
+module.exports = { renderWhiteboardSceneClip, buildFrameSvg, buildScenePlan, parseIconGeometry, THEME, THEMES, getTheme };

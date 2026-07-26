@@ -4,18 +4,59 @@ const ffmpegPath = require('ffmpeg-static');
 
 const FPS = 25;
 
-// Light, modern agency-style theme (mint gradient, ink outlines, teal accents)
-const THEME = {
-  bgTop: '#fbfdfd',
-  bgBottom: '#e4f4ec',
-  bgAccent: '#d9f0fb',
-  ink: '#2d3748',
-  inkSoft: '#64748b',
-  accent: '#14b8a6',
-  accent2: '#0ea5e9',
-  label: '#1f2937',
-  dotColors: ['#14b8a6', '#0ea5e9', '#94a3b8'],
+// Background palettes for the light, modern agency-style look. Each video
+// gets one at random (see videoQueue.js) — Mint is the original/default.
+const THEMES = {
+  Mint: {
+    bgTop: '#fbfdfd',
+    bgBottom: '#e4f4ec',
+    bgAccent: '#d9f0fb',
+    ink: '#2d3748',
+    inkSoft: '#64748b',
+    accent: '#14b8a6',
+    accent2: '#0ea5e9',
+    label: '#1f2937',
+    dotColors: ['#14b8a6', '#0ea5e9', '#94a3b8'],
+  },
+  Ocean: {
+    bgTop: '#eef6fb',
+    bgBottom: '#cfe6f5',
+    bgAccent: '#b8d9ee',
+    ink: '#0f2b3d',
+    inkSoft: '#4a6b80',
+    accent: '#0ea5e9',
+    accent2: '#0369a1',
+    label: '#0f2b3d',
+    dotColors: ['#0ea5e9', '#0369a1', '#7dd3fc'],
+  },
+  Sunset: {
+    bgTop: '#fff8f0',
+    bgBottom: '#fde3d0',
+    bgAccent: '#fbd0c0',
+    ink: '#4a2b1f',
+    inkSoft: '#8a5c47',
+    accent: '#f97316',
+    accent2: '#e11d48',
+    label: '#4a2b1f',
+    dotColors: ['#f97316', '#e11d48', '#fb923c'],
+  },
+  Slate: {
+    bgTop: '#f8f9fa',
+    bgBottom: '#e5e8eb',
+    bgAccent: '#dde1e6',
+    ink: '#1e293b',
+    inkSoft: '#64748b',
+    accent: '#3b82f6',
+    accent2: '#64748b',
+    label: '#1e293b',
+    dotColors: ['#3b82f6', '#94a3b8', '#cbd5e1'],
+  },
 };
+const THEME = THEMES.Mint; // back-compat alias — read-only, never mutated
+const THEME_NAMES = Object.keys(THEMES);
+function getTheme(name) {
+  return THEMES[name] || THEMES.Mint;
+}
 
 function easeOutCubic(p) {
   return 1 - Math.pow(1 - Math.max(0, Math.min(1, p)), 3);
@@ -84,7 +125,7 @@ function fitTitleLines(title, width, baseFontSize, maxLines) {
 }
 
 /** Precompute per-scene static geometry: item positions, dots, timings. */
-function buildScenePlan(slide, width, height, seed) {
+function buildScenePlan(slide, width, height, seed, dotColors = ['#94a3b8']) {
   const rand = mulberry32(seed);
   const items = slide.sections.flatMap((s, si) => s.items.map((it) => ({ ...it, sectionIndex: si })));
   const plan = { layoutKind: slide.layout, items: [], dots: [], headings: [] };
@@ -95,7 +136,7 @@ function buildScenePlan(slide, width, height, seed) {
       x: width * (0.04 + rand() * 0.92),
       y: height * (0.08 + rand() * 0.84),
       r: 2.5 + rand() * 4,
-      color: THEME.dotColors[Math.floor(rand() * THEME.dotColors.length)],
+      color: dotColors[Math.floor(rand() * dotColors.length)],
       phase: rand() * Math.PI * 2,
       speed: 0.3 + rand() * 0.5,
       opacity: 0.35 + rand() * 0.4,
@@ -199,7 +240,7 @@ function buildScenePlan(slide, width, height, seed) {
 }
 
 /** Build one SVG frame at time t (seconds). */
-function buildFrameSvg({ slide, plan, iconData, width, height, t, duration }) {
+function buildFrameSvg({ slide, plan, iconData, width, height, t, duration, theme = THEME }) {
   const parts = [];
   const titleSize = Math.round(height * 0.075);
   const subtitleSize = Math.round(height * 0.04);
@@ -219,17 +260,17 @@ function buildFrameSvg({ slide, plan, iconData, width, height, t, duration }) {
   // background
   parts.push(`<defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${THEME.bgTop}"/>
-      <stop offset="0.6" stop-color="${THEME.bgBottom}"/>
-      <stop offset="1" stop-color="${THEME.bgAccent}"/>
+      <stop offset="0" stop-color="${theme.bgTop}"/>
+      <stop offset="0.6" stop-color="${theme.bgBottom}"/>
+      <stop offset="1" stop-color="${theme.bgAccent}"/>
     </linearGradient>
     <clipPath id="titleClip"><rect x="0" y="0" width="${width * clamp01((t - 0.15) / 0.9)}" height="${titleClipHeight}"/></clipPath>
   </defs>
   <rect width="${width}" height="${height}" fill="url(#bg)"/>`);
 
   // decorative dotted arcs (static)
-  parts.push(`<circle cx="${width * 0.06}" cy="${height * 0.9}" r="${height * 0.22}" fill="none" stroke="${THEME.inkSoft}" stroke-width="1.5" stroke-dasharray="1 9" stroke-linecap="round" opacity="0.5"/>`);
-  parts.push(`<circle cx="${width * 0.95}" cy="${height * 0.08}" r="${height * 0.18}" fill="none" stroke="${THEME.inkSoft}" stroke-width="1.5" stroke-dasharray="1 9" stroke-linecap="round" opacity="0.5"/>`);
+  parts.push(`<circle cx="${width * 0.06}" cy="${height * 0.9}" r="${height * 0.22}" fill="none" stroke="${theme.inkSoft}" stroke-width="1.5" stroke-dasharray="1 9" stroke-linecap="round" opacity="0.5"/>`);
+  parts.push(`<circle cx="${width * 0.95}" cy="${height * 0.08}" r="${height * 0.18}" fill="none" stroke="${theme.inkSoft}" stroke-width="1.5" stroke-dasharray="1 9" stroke-linecap="round" opacity="0.5"/>`);
 
   // ambient drifting dots
   for (const d of plan.dots) {
@@ -243,7 +284,7 @@ function buildFrameSvg({ slide, plan, iconData, width, height, t, duration }) {
   const titleTextElements = titleLines
     .map(
       (line, i) =>
-        `<text x="${width / 2}" y="${Math.round(titleStartY + i * titleLineGap)}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${fittedTitleSize}" font-weight="800" fill="${THEME.ink}">${escapeXml(line)}</text>`,
+        `<text x="${width / 2}" y="${Math.round(titleStartY + i * titleLineGap)}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${fittedTitleSize}" font-weight="800" fill="${theme.ink}">${escapeXml(line)}</text>`,
     )
     .join('\n    ');
   parts.push(`<g clip-path="url(#titleClip)" opacity="${titleOp}">
@@ -251,7 +292,7 @@ function buildFrameSvg({ slide, plan, iconData, width, height, t, duration }) {
   </g>`);
   if (slide.subtitle) {
     const subOp = clamp01((t - 0.7) / 0.4);
-    parts.push(`<text x="${width / 2}" y="${subtitleY}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${subtitleSize}" font-weight="600" fill="${THEME.accent}" opacity="${subOp}" letter-spacing="1">${escapeXml(slide.subtitle.toUpperCase())}</text>`);
+    parts.push(`<text x="${width / 2}" y="${subtitleY}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${subtitleSize}" font-weight="600" fill="${theme.accent}" opacity="${subOp}" letter-spacing="1">${escapeXml(slide.subtitle.toUpperCase())}</text>`);
   }
 
   // split headings
@@ -259,14 +300,14 @@ function buildFrameSvg({ slide, plan, iconData, width, height, t, duration }) {
     if (!h.text) continue;
     const p = easeOutCubic((t - h.appear) / 0.4);
     if (p <= 0) continue;
-    parts.push(`<text x="${h.x}" y="${height * 0.28}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${headingSize}" font-weight="700" fill="${THEME.inkSoft}" opacity="${p}" letter-spacing="2">${escapeXml(h.text.toUpperCase())}</text>`);
+    parts.push(`<text x="${h.x}" y="${height * 0.28}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${headingSize}" font-weight="700" fill="${theme.inkSoft}" opacity="${p}" letter-spacing="2">${escapeXml(h.text.toUpperCase())}</text>`);
   }
 
   // orbit ring
   if (plan.orbitRing) {
     const p = easeOutCubic((t - 0.9) / 0.6);
     if (p > 0) {
-      parts.push(`<circle cx="${plan.orbitRing.cx}" cy="${plan.orbitRing.cy}" r="${plan.orbitRing.r}" fill="none" stroke="${THEME.inkSoft}" stroke-width="1.5" stroke-dasharray="1 10" stroke-linecap="round" opacity="${0.55 * p}"/>`);
+      parts.push(`<circle cx="${plan.orbitRing.cx}" cy="${plan.orbitRing.cy}" r="${plan.orbitRing.r}" fill="none" stroke="${theme.inkSoft}" stroke-width="1.5" stroke-dasharray="1 10" stroke-linecap="round" opacity="${0.55 * p}"/>`);
     }
   }
 
@@ -281,7 +322,7 @@ function buildFrameSvg({ slide, plan, iconData, width, height, t, duration }) {
     const qOp = clamp01((t - 0.9) / 0.4);
     if (qOp > 0) {
       qLines.forEach((line, i) => {
-        parts.push(`<text x="${width / 2}" y="${qStartY + i * qLineGap}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${questionSize}" font-weight="700" fill="${THEME.ink}" opacity="${qOp}">${escapeXml(line)}</text>`);
+        parts.push(`<text x="${width / 2}" y="${qStartY + i * qLineGap}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${questionSize}" font-weight="700" fill="${theme.ink}" opacity="${qOp}">${escapeXml(line)}</text>`);
       });
     }
 
@@ -296,13 +337,13 @@ function buildFrameSvg({ slide, plan, iconData, width, height, t, duration }) {
       if (p <= 0) return;
       const y = choicesTop + i * (choiceH + choiceGap);
       const highlightP = choice.correct ? easeOutCubic((t - plan.quiz.revealAppear) / 0.4) : 0;
-      parts.push(`<rect x="${choiceX}" y="${y}" width="${choiceW}" height="${choiceH}" rx="${choiceH * 0.25}" fill="#ffffff" stroke="${highlightP > 0 ? THEME.accent : '#dbe5ea'}" stroke-width="${highlightP > 0 ? 3 : 2}" opacity="${p}"/>`);
-      parts.push(`<text x="${choiceX + width * 0.02}" y="${y + choiceH * 0.62}" font-family="Segoe UI, Arial, sans-serif" font-size="${choiceSize}" font-weight="700" fill="${THEME.ink}" opacity="${p}">${escapeXml(choice.text)}</text>`);
+      parts.push(`<rect x="${choiceX}" y="${y}" width="${choiceW}" height="${choiceH}" rx="${choiceH * 0.25}" fill="#ffffff" stroke="${highlightP > 0 ? theme.accent : '#dbe5ea'}" stroke-width="${highlightP > 0 ? 3 : 2}" opacity="${p}"/>`);
+      parts.push(`<text x="${choiceX + width * 0.02}" y="${y + choiceH * 0.62}" font-family="Segoe UI, Arial, sans-serif" font-size="${choiceSize}" font-weight="700" fill="${theme.ink}" opacity="${p}">${escapeXml(choice.text)}</text>`);
       if (choice.correct && highlightP > 0) {
         const cx = choiceX + choiceW - width * 0.035;
         const cy = y + choiceH / 2;
         const s = choiceH * 0.22;
-        parts.push(`<polyline points="${cx - s},${cy} ${cx - s * 0.25},${cy + s * 0.7} ${cx + s},${cy - s * 0.8}" fill="none" stroke="${THEME.accent}" stroke-width="${Math.max(3, s * 0.25)}" stroke-linecap="round" stroke-linejoin="round" opacity="${highlightP}"/>`);
+        parts.push(`<polyline points="${cx - s},${cy} ${cx - s * 0.25},${cy + s * 0.7} ${cx + s},${cy - s * 0.8}" fill="none" stroke="${theme.accent}" stroke-width="${Math.max(3, s * 0.25)}" stroke-linecap="round" stroke-linejoin="round" opacity="${highlightP}"/>`);
       }
     });
   }
@@ -328,10 +369,10 @@ function buildFrameSvg({ slide, plan, iconData, width, height, t, duration }) {
       const xFull = b.cx - b.iconSize * 0.75;
       const x2 = x1 + (xFull - x1) * p;
       const ah = height * 0.011;
-      parts.push(`<line x1="${x1}" y1="${y}" x2="${Math.max(x1, x2 - ah * 1.5)}" y2="${y}" stroke="${THEME.accent}" stroke-width="${height * 0.006}" stroke-linecap="round"/>`);
-      parts.push(`<polygon points="${x2},${y} ${x2 - ah * 2},${y - ah} ${x2 - ah * 2},${y + ah}" fill="${THEME.accent}"/>`);
+      parts.push(`<line x1="${x1}" y1="${y}" x2="${Math.max(x1, x2 - ah * 1.5)}" y2="${y}" stroke="${theme.accent}" stroke-width="${height * 0.006}" stroke-linecap="round"/>`);
+      parts.push(`<polygon points="${x2},${y} ${x2 - ah * 2},${y - ah} ${x2 - ah * 2},${y + ah}" fill="${theme.accent}"/>`);
       if (p > 0.85) {
-        parts.push(`<text x="${(x1 + xFull) / 2}" y="${y - height * 0.028}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${labelSize}" font-weight="700" fill="${THEME.accent2}" opacity="${clamp01((p - 0.85) / 0.15)}">${i}</text>`);
+        parts.push(`<text x="${(x1 + xFull) / 2}" y="${y - height * 0.028}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${labelSize}" font-weight="700" fill="${theme.accent2}" opacity="${clamp01((p - 0.85) / 0.15)}">${i}</text>`);
       }
     }
   }
@@ -349,18 +390,18 @@ function buildFrameSvg({ slide, plan, iconData, width, height, t, duration }) {
     const half = (s * scale) / 2;
 
     parts.push(`<g opacity="${p}">`);
-    parts.push(`<circle cx="${x}" cy="${y}" r="${half * 1.45}" fill="#ffffff" stroke="${item.hero ? THEME.accent : '#dbe5ea'}" stroke-width="${item.hero ? 3 : 2}"/>`);
+    parts.push(`<circle cx="${x}" cy="${y}" r="${half * 1.45}" fill="#ffffff" stroke="${item.hero ? theme.accent : '#dbe5ea'}" stroke-width="${item.hero ? 3 : 2}"/>`);
     const icon = iconData[i];
     if (icon) {
       parts.push(`<image x="${x - half}" y="${y - half}" width="${s * scale}" height="${s * scale}" href="${icon}"/>`);
     } else {
-      parts.push(`<text x="${x}" y="${y + s * 0.14}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${s * 0.42}" font-weight="800" fill="${THEME.ink}">${escapeXml((item.label || '?')[0].toUpperCase())}</text>`);
+      parts.push(`<text x="${x}" y="${y + s * 0.14}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${s * 0.42}" font-weight="800" fill="${theme.ink}">${escapeXml((item.label || '?')[0].toUpperCase())}</text>`);
     }
     if (item.label) {
       const labelY = y + half * 1.45 + labelSize * 1.15;
-      parts.push(`<text x="${x}" y="${labelY}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${labelSize}" font-weight="700" fill="${THEME.label}">${escapeXml(item.label)}</text>`);
+      parts.push(`<text x="${x}" y="${labelY}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${labelSize}" font-weight="700" fill="${theme.label}">${escapeXml(item.label)}</text>`);
       if (item.sublabel) {
-        parts.push(`<text x="${x}" y="${labelY + sublabelSize * 1.3}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${sublabelSize}" fill="${THEME.inkSoft}">${escapeXml(item.sublabel)}</text>`);
+        parts.push(`<text x="${x}" y="${labelY + sublabelSize * 1.3}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${sublabelSize}" fill="${theme.inkSoft}">${escapeXml(item.sublabel)}</text>`);
       }
     }
     parts.push('</g>');
@@ -371,15 +412,15 @@ function buildFrameSvg({ slide, plan, iconData, width, height, t, duration }) {
   const fadeOut = clamp01((t - (duration - 0.35)) / 0.35);
   const fade = Math.max(fadeIn, fadeOut);
   if (fade > 0.001) {
-    parts.push(`<rect width="${width}" height="${height}" fill="${THEME.bgTop}" opacity="${fade}"/>`);
+    parts.push(`<rect width="${width}" height="${height}" fill="${theme.bgTop}" opacity="${fade}"/>`);
   }
 
   return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">${parts.join('\n')}</svg>`;
 }
 
 /** Render a full animated scene to an mp4 clip by piping frames into ffmpeg. */
-async function renderAnimatedSceneClip({ slide, iconBuffers, width, height, duration, outputPath, seed }) {
-  const plan = buildScenePlan(slide, width, height, seed);
+async function renderAnimatedSceneClip({ slide, iconBuffers, width, height, duration, outputPath, seed, theme = THEME }) {
+  const plan = buildScenePlan(slide, width, height, seed, theme.dotColors);
 
   // rasterize icons once, embed as data URIs in every frame
   const iconData = [];
@@ -417,7 +458,7 @@ async function renderAnimatedSceneClip({ slide, iconBuffers, width, height, dura
     (async () => {
       for (let f = 0; f < frameCount; f++) {
         const t = f / FPS;
-        const svg = buildFrameSvg({ slide, plan, iconData, width, height, t, duration });
+        const svg = buildFrameSvg({ slide, plan, iconData, width, height, t, duration, theme });
         const png = await sharp(Buffer.from(svg)).png().toBuffer();
         if (!proc.stdin.write(png)) {
           await new Promise((r) => proc.stdin.once('drain', r));
@@ -434,6 +475,9 @@ async function renderAnimatedSceneClip({ slide, iconBuffers, width, height, dura
 module.exports = {
   renderAnimatedSceneClip,
   THEME,
+  THEMES,
+  THEME_NAMES,
+  getTheme,
   FPS,
   buildScenePlan,
   buildFrameSvg,
