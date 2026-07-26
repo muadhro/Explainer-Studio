@@ -80,9 +80,9 @@ const PLANS = [
 // Commitment terms: longer terms discount the monthly-equivalent price.
 const BILLING_CYCLES = [
   { months: 1, label: '1 Month', discountPct: 0 },
-  { months: 3, label: '3 Months', discountPct: 10 },
-  { months: 6, label: '6 Months', discountPct: 15 },
-  { months: 12, label: '12 Months', discountPct: 20 },
+  { months: 3, label: '3 Months', discountPct: 15 },
+  { months: 6, label: '6 Months', discountPct: 25 },
+  { months: 12, label: '12 Months', discountPct: 30 },
 ];
 
 function getPlan(planId) {
