@@ -15,7 +15,6 @@ const PLANS = [
     features: [
       '3 videos / month',
       '15,000 narration characters / month',
-      '720p rendering',
       'All animation styles',
       'Studio watermark included',
       '5 studio projects',
@@ -32,7 +31,6 @@ const PLANS = [
     features: [
       '20 videos / month',
       '60,000 narration characters / month',
-      '1080p rendering',
       'All animation styles',
       'No watermark',
       '25 studio projects',
@@ -51,7 +49,6 @@ const PLANS = [
     features: [
       '50 videos / month',
       '170,000 narration characters / month',
-      '1440p rendering',
       'All animation styles',
       'Full voice library access',
       '100 studio projects',
@@ -70,7 +67,6 @@ const PLANS = [
     features: [
       '300 videos / month',
       '1,000,000 narration characters / month',
-      '4K rendering',
       'All animation styles',
       'Dedicated render capacity',
       'Unlimited studio projects',

@@ -4,6 +4,18 @@ import { useAuth } from '../AuthContext';
 import { fetchBilling, switchPlan, createPaypalSubscription, confirmPaypalSubscription } from '../api';
 import type { BillingInfo } from '../types';
 
+// A plan's maxQuality unlocks everything at or below it, not just that one
+// tier — mirrors backend/config/plans.js's QUALITY_ORDER so the feature list
+// reads correctly (e.g. Studio = "720p, 1080p, 1440p & 4K", not just "4K").
+const QUALITY_ORDER = ['720p', '1080p', '1440p', '4K'];
+
+function qualityFeatureText(maxQuality: string) {
+  const cutoff = QUALITY_ORDER.indexOf(maxQuality);
+  const tiers = cutoff === -1 ? [maxQuality] : QUALITY_ORDER.slice(0, cutoff + 1);
+  const label = tiers.length > 1 ? `${tiers.slice(0, -1).join(', ')} & ${tiers[tiers.length - 1]}` : tiers[0];
+  return `${label} rendering`;
+}
+
 export default function Pricing() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -302,7 +314,7 @@ export default function Pricing() {
               </button>
 
               <ul className="pricing-card__features">
-                {plan.features.map((f) => (
+                {[plan.features[0], plan.features[1], qualityFeatureText(plan.maxQuality), ...plan.features.slice(2)].map((f) => (
                   <li key={f}>
                     <CheckIcon /> {f}
                   </li>
@@ -337,7 +349,6 @@ const FALLBACK_PLANS = [
     features: [
       '3 videos / month',
       '15,000 narration characters / month',
-      '720p rendering',
       'All animation styles',
       'Studio watermark included',
       '5 studio projects',
@@ -354,7 +365,6 @@ const FALLBACK_PLANS = [
     features: [
       '20 videos / month',
       '60,000 narration characters / month',
-      '1080p rendering',
       'All animation styles',
       'No watermark',
       '25 studio projects',
@@ -373,7 +383,6 @@ const FALLBACK_PLANS = [
     features: [
       '50 videos / month',
       '170,000 narration characters / month',
-      '1440p rendering',
       'All animation styles',
       'Full voice library access',
       '100 studio projects',
@@ -392,7 +401,6 @@ const FALLBACK_PLANS = [
     features: [
       '300 videos / month',
       '1,000,000 narration characters / month',
-      '4K rendering',
       'All animation styles',
       'Dedicated render capacity',
       'Unlimited studio projects',
