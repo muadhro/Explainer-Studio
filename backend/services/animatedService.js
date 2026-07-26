@@ -383,4 +383,15 @@ async function renderAnimatedSceneClip({ slide, iconBuffers, width, height, dura
   });
 }
 
-module.exports = { renderAnimatedSceneClip, THEME };
+module.exports = {
+  renderAnimatedSceneClip,
+  THEME,
+  FPS,
+  buildScenePlan,
+  mulberry32,
+  easeOutCubic,
+  clamp01,
+  escapeXml,
+  wrapText,
+  fitTitleLines,
+};

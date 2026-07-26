@@ -16,7 +16,7 @@ function cheapestPlanFor(quality) {
 
 const router = express.Router();
 
-const VALID_STYLES = ['Animated Explainer', 'Kinetic Typography', 'Motion Graphics', 'Flat Design 2D'];
+const VALID_STYLES = ['Animated Explainer', 'Kinetic Typography', 'Motion Graphics', 'Flat Design 2D', 'Whiteboard Animation'];
 const VALID_QUALITIES = QUALITY_ORDER;
 const VALID_DURATIONS = [1, 2, 3, 5];
 

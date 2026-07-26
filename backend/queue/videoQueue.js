@@ -156,19 +156,25 @@ async function renderLocally(videoId, video, script, audioPath, videoPath) {
     // Fetch per-scene assets (progress 30 -> 55):
     // slide scenes get themed icons per item; photo scenes get a background image
     const isAnimated = video.animationStyle === 'Animated Explainer';
+    const isWhiteboard = video.animationStyle === 'Whiteboard Animation';
     const slideTheme = getTheme(video.animationStyle);
-    // animated style uses dark-ink outline icons on a light background
-    const iconOptions = isAnimated
-      ? { color: '#2d3748', size: 256, outline: true }
-      : { color: slideTheme.icon, size: 256 };
+    // animated style uses dark-ink outline icons on a light background;
+    // whiteboard needs genuine single-stroke icons so they can be drawn on
+    // progressively (a filled icon just renders as a solid blob)
+    const iconOptions = isWhiteboard
+      ? { color: '#242424', size: 256, outline: true, prefixes: ['tabler', 'lucide'], requireStroke: true }
+      : isAnimated
+        ? { color: '#2d3748', size: 256, outline: true }
+        : { color: slideTheme.icon, size: 256 };
     const sceneAssets = [];
     for (let i = 0; i < script.scenes.length; i++) {
       const scene = script.scenes[i];
       let slide = scene.sceneType !== 'photo' && scene.slide ? normalizeSlide(scene.slide) : null;
 
-      // the Animated Explainer style has a light theme that photo scenes clash
-      // with — convert any photo scene into a simple hero slide instead
-      if (!slide && isAnimated) {
+      // the Animated Explainer and Whiteboard Animation styles fully own their
+      // own scene rendering (no photo backgrounds), so convert any photo scene
+      // into a simple hero slide instead
+      if (!slide && (isAnimated || isWhiteboard)) {
         // course titles can run much longer than the "max 3 words" a slide
         // title is meant to be — never render the full thing verbatim
         const fallbackTitle = (video.title || '').split(/\s+/).slice(0, 4).join(' ');

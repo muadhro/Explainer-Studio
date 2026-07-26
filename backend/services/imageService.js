@@ -61,41 +61,58 @@ async function searchWikimedia(query) {
   return null;
 }
 
+// a "stroke icon" set (tabler/lucide) can still contain individual filled
+// glyphs (fill="#..." with no stroke) — those render as solid blobs and
+// can't be progressively drawn via stroke-dasharray, so callers that need
+// a genuine outline (e.g. the whiteboard style) should reject those
+function isStrokeSvg(svgText) {
+  return svgText.includes('fill="none"') && /stroke="(?!none")[^"]/.test(svgText);
+}
+
 // --- Iconify (no key): find a tech icon SVG for a keyword ---
 async function fetchIcon(keyword, options = {}) {
   const color = (options.color || '#ffffff').replace('#', '%23');
   const size = options.size || 180;
   // restrict to outline/line icon families for the light "Animated Explainer" look
-  const prefixParam = options.outline ? '&prefixes=tabler,lucide,ph,solar,hugeicons' : '';
+  const prefixes = options.prefixes || ['tabler', 'lucide', 'ph', 'solar', 'hugeicons'];
+  const prefixParam = options.outline ? `&prefixes=${prefixes.join(',')}` : '';
+  const limit = options.requireStroke ? 8 : 5;
   try {
     let searchRes = await fetch(
-      `https://api.iconify.design/search?query=${encodeURIComponent(keyword)}&limit=5${prefixParam}`,
+      `https://api.iconify.design/search?query=${encodeURIComponent(keyword)}&limit=${limit}${prefixParam}`,
       { headers: { 'User-Agent': USER_AGENT } },
     );
     if (!searchRes.ok) return null;
     let searchData = await searchRes.json();
-    let icon = searchData.icons && searchData.icons[0];
+    let candidates = searchData.icons || [];
 
     // outline sets didn't have it — fall back to any icon set
-    if (!icon && prefixParam) {
+    if (!candidates.length && prefixParam) {
       searchRes = await fetch(
-        `https://api.iconify.design/search?query=${encodeURIComponent(keyword)}&limit=5`,
+        `https://api.iconify.design/search?query=${encodeURIComponent(keyword)}&limit=${limit}`,
         { headers: { 'User-Agent': USER_AGENT } },
       );
       if (!searchRes.ok) return null;
       searchData = await searchRes.json();
-      icon = searchData.icons && searchData.icons[0];
+      candidates = searchData.icons || [];
     }
-    if (!icon) return null;
+    if (!candidates.length) return null;
 
-    const [prefix, name] = icon.split(':');
-    const svgRes = await fetch(
-      `https://api.iconify.design/${prefix}/${name}.svg?color=${color}&width=${size}&height=${size}`,
-      { headers: { 'User-Agent': USER_AGENT } },
-    );
-    if (!svgRes.ok) return null;
-    const svg = await svgRes.text();
-    return svg.startsWith('<svg') ? Buffer.from(svg) : null;
+    // try each candidate in ranked order until one actually satisfies the
+    // caller's requirements, instead of committing to the first match
+    for (const icon of candidates) {
+      const [prefix, name] = icon.split(':');
+      const svgRes = await fetch(
+        `https://api.iconify.design/${prefix}/${name}.svg?color=${color}&width=${size}&height=${size}`,
+        { headers: { 'User-Agent': USER_AGENT } },
+      );
+      if (!svgRes.ok) continue;
+      const svg = await svgRes.text();
+      if (!svg.startsWith('<svg')) continue;
+      if (options.requireStroke && !isStrokeSvg(svg)) continue;
+      return Buffer.from(svg);
+    }
+    return null;
   } catch {
     return null;
   }

@@ -10,6 +10,7 @@ const ANIMATION_STYLES: AnimationStyle[] = [
   'Kinetic Typography',
   'Motion Graphics',
   'Flat Design 2D',
+  'Whiteboard Animation',
 ];
 const QUALITIES: VideoQuality[] = ['720p', '1080p', '1440p', '4K'];
 const QUALITY_ORDER: VideoQuality[] = ['720p', '1080p', '1440p', '4K'];

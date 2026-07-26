@@ -139,7 +139,14 @@ project if they don't already exist — no manual migration step needed.
      - The **"Animated Explainer"** style renders true frame-by-frame motion graphics on a light
        agency-style theme: wipe-reveal titles, staggered slide-in items with gentle bob, orbiting
        icon rings for concept groups, draw-on numbered arrows for flows, and drifting ambient dots.
-     - The other three styles render dark presentation slides where items appear step by step.
+     - The **"Whiteboard Animation"** style renders a hand-drawing effect on a cream whiteboard
+       background: icons are drawn on stroke-by-stroke (via `stroke-dasharray`/`stroke-dashoffset`
+       over each icon's real path/shape geometry, computed with `svg-path-properties`) with a
+       procedural pen-tip marker tracking the ink, titles/labels set in a bundled handwriting font
+       (Caveat). Only genuinely stroke-based Iconify icons (`tabler`/`lucide`, filtered to exclude
+       filled variants) are used, since a filled icon can't be progressively drawn.
+     - The remaining three styles (Kinetic Typography, Motion Graphics, Flat Design 2D) render dark
+       presentation slides where items appear step by step.
      - Scenes Claude marks as "photo" instead get a background image from the internet (Pexels if
        a key is set, otherwise Openverse, then Wikimedia Commons) with a caption band and Ken Burns
        zoom.

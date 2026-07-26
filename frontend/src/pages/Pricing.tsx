@@ -338,7 +338,7 @@ const FALLBACK_PLANS = [
       '3 videos / month',
       '15,000 narration characters / month',
       '720p rendering',
-      'Animated Explainer + Flat Design styles',
+      'All animation styles',
       'Studio watermark included',
       '5 studio projects',
       'Community support',

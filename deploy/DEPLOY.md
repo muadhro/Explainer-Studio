@@ -119,6 +119,21 @@ cd ../frontend && sudo -u www-data npm install && sudo -u www-data npm run build
 sudo systemctl restart explainer-backend
 ```
 
+### One-time: install the Whiteboard Animation handwriting font
+
+The "Whiteboard Animation" style renders titles/labels in a bundled font
+(Caveat, `backend/assets/fonts/Caveat-Variable.ttf`) that has to be
+installed system-wide so `sharp`/librsvg can resolve it when rasterizing
+frames — it isn't picked up automatically from the repo checkout. Run this
+once (and again only if the font file itself changes):
+
+```bash
+sudo mkdir -p /usr/share/fonts/truetype/explainerstudio
+sudo cp /var/www/explainerstudio/backend/assets/fonts/Caveat-Variable.ttf /usr/share/fonts/truetype/explainerstudio/
+sudo fc-cache -f
+fc-list | grep -i caveat   # sanity check it's registered
+```
+
 ## Notes
 
 - The backend runs as the `www-data` user via systemd — logs are at

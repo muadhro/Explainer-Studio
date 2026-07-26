@@ -1,4 +1,4 @@
-export type AnimationStyle = 'Animated Explainer' | 'Kinetic Typography' | 'Motion Graphics' | 'Flat Design 2D';
+export type AnimationStyle = 'Animated Explainer' | 'Kinetic Typography' | 'Motion Graphics' | 'Flat Design 2D' | 'Whiteboard Animation';
 
 export interface User {
   id: string;

@@ -6,6 +6,7 @@ const sharp = require('sharp');
 const ffmpegPath = require('ffmpeg-static');
 const { renderSlideStill } = require('./slideService');
 const { renderAnimatedSceneClip } = require('./animatedService');
+const { renderWhiteboardSceneClip } = require('./whiteboardService');
 
 const FPS = 25;
 
@@ -265,6 +266,19 @@ async function composeVideo({ scenes, sceneAssets, audioPath, quality, animation
         // fully animated light-theme scene (frame-by-frame motion graphics)
         const clipPath = path.join(workDir, `clip_${i + 1}.mp4`);
         await renderAnimatedSceneClip({
+          slide: assets.slide,
+          iconBuffers: assets.slideIcons || [],
+          width,
+          height,
+          duration,
+          outputPath: clipPath,
+          seed: i + 1,
+        });
+        clipPaths.push(clipPath);
+      } else if (assets.slide && animationStyle === 'Whiteboard Animation') {
+        // hand-drawing effect: icons stroke themselves on, pen-tip tracks the ink
+        const clipPath = path.join(workDir, `clip_${i + 1}.mp4`);
+        await renderWhiteboardSceneClip({
           slide: assets.slide,
           iconBuffers: assets.slideIcons || [],
           width,
