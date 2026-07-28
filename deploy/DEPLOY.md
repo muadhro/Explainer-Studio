@@ -134,6 +134,26 @@ sudo fc-cache -f
 fc-list | grep -i caveat   # sanity check it's registered
 ```
 
+### Site access is password-walled (HTTP Basic Auth)
+
+The live site currently requires a shared username/password before anyone
+can browse it (`/api/` and `/avatars/` are exempt, so PayPal webhooks and
+the Google OAuth callback still work without a password prompt). This is
+enforced in `deploy/nginx.conf`'s main `location /` block via
+`auth_basic`/`auth_basic_user_file`, pointing at `/etc/nginx/.htpasswd` on
+the Droplet — that file is **not** in the repo (credentials shouldn't be
+committed). To add/change a user:
+
+```bash
+sudo htpasswd -b /etc/nginx/.htpasswd <username> '<password>'   # add or update a user
+sudo htpasswd -D /etc/nginx/.htpasswd <username>                 # remove a user
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+To lift the restriction entirely, remove the `auth_basic`/`auth_basic_user_file`
+lines from the `location /` block in both `deploy/nginx.conf` and
+`/etc/nginx/sites-available/explainerstudio.org`, then `nginx -t && systemctl reload nginx`.
+
 ## Notes
 
 - The backend runs as the `www-data` user via systemd — logs are at
