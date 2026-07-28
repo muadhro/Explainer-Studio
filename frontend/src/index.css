@@ -1522,6 +1522,137 @@ button[type='submit']:disabled {
   margin-top: 8px;
 }
 
+/* --- Home page: editorial hero (headline + numbered "how it works") --- */
+.home-hero {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 56px;
+  align-items: center;
+  padding: 24px 0 8px;
+}
+
+.home-hero .home-hero__title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(34px, 4.4vw, 52px);
+  line-height: 1.08;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-align: left;
+  margin: 0 0 18px;
+}
+
+.home-hero__accent {
+  color: var(--blue);
+}
+
+.home-hero__subtitle {
+  text-align: left;
+  color: var(--ink-secondary);
+  font-size: 17px;
+  line-height: 1.55;
+  max-width: 420px;
+  margin: 0 0 28px;
+}
+
+.home-hero .hero-actions {
+  justify-content: flex-start;
+}
+
+.home-hero__recipe {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.home-hero__step {
+  display: flex;
+  gap: 18px;
+  padding-bottom: 30px;
+  position: relative;
+}
+
+.home-hero__step:last-child {
+  padding-bottom: 0;
+}
+
+.home-hero__step::before {
+  content: '';
+  position: absolute;
+  left: 17px;
+  top: 40px;
+  bottom: -4px;
+  width: 1.5px;
+  background: var(--border);
+}
+
+.home-hero__step:last-child::before {
+  display: none;
+}
+
+.home-hero__step-num {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--blue);
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.home-hero__step h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.home-hero__step p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ink-secondary);
+  line-height: 1.5;
+}
+
+.home-hero__step-tag {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 10%, transparent);
+  padding: 3px 9px;
+  border-radius: 6px;
+}
+
+@media (max-width: 860px) {
+  .home-hero {
+    grid-template-columns: 1fr;
+    gap: 36px;
+    text-align: center;
+  }
+  .home-hero .home-hero__title,
+  .home-hero__subtitle {
+    text-align: center;
+  }
+  .home-hero__subtitle {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .home-hero .hero-actions {
+    justify-content: center;
+  }
+}
+
 .subscription-card {
   background: var(--bg);
   border-radius: var(--radius-card);

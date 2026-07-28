@@ -108,19 +108,54 @@ function SignedInHome() {
 
 function MarketingHome() {
   return (
-    <div className="page">
-      <h1>Turn any course into a professional video.</h1>
-      <p className="page-subtitle">
-        Paste your content, pick a voice and a style, and Explainer Studio does the rest.
-      </p>
-      <div className="hero-actions">
-        <Link to="/signup" className="pill-button">
-          Get Started Free
-        </Link>
-        <Link to="/pricing" className="nav-button nav-button--ghost">
-          View Pricing
-        </Link>
-      </div>
+    <div className="page page--wide">
+      <section className="home-hero">
+        <div>
+          <h1 className="home-hero__title">
+            Turn any course
+            <br />
+            into a <span className="home-hero__accent">professional video.</span>
+          </h1>
+          <p className="home-hero__subtitle">
+            Paste your content, pick a voice and a style, and Explainer Studio does the rest.
+          </p>
+          <div className="hero-actions">
+            <Link to="/signup" className="pill-button">
+              Get Started Free
+            </Link>
+            <Link to="/pricing" className="nav-button nav-button--ghost">
+              View Pricing
+            </Link>
+          </div>
+        </div>
+
+        <ol className="home-hero__recipe">
+          <li className="home-hero__step">
+            <span className="home-hero__step-num">1</span>
+            <div>
+              <h3>Paste your content</h3>
+              <p>Course notes, a script, a syllabus — any text works.</p>
+              <span className="home-hero__step-tag">30 seconds</span>
+            </div>
+          </li>
+          <li className="home-hero__step">
+            <span className="home-hero__step-num">2</span>
+            <div>
+              <h3>Pick a style &amp; voice</h3>
+              <p>Five animation styles, twenty-plus narration voices.</p>
+              <span className="home-hero__step-tag">Your call</span>
+            </div>
+          </li>
+          <li className="home-hero__step">
+            <span className="home-hero__step-num">3</span>
+            <div>
+              <h3>Get your video</h3>
+              <p>Fully narrated and rendered, ready to download.</p>
+              <span className="home-hero__step-tag">Minutes, not hours</span>
+            </div>
+          </li>
+        </ol>
+      </section>
 
       <div className="home-actions" style={{ marginTop: 56 }}>
         <div className="home-action-card home-action-card--static">
