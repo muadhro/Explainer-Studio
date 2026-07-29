@@ -353,13 +353,19 @@ async function composeVideo({ scenes, sceneAssets, audioPath, quality, animation
     const silentVideo = path.join(workDir, 'combined.mp4');
     await runFfmpeg(['-f', 'concat', '-safe', '0', '-i', concatList, '-c', 'copy', silentVideo]);
 
+    // Deliberately NOT using -shortest here: composed video is intentionally
+    // ~0.5s longer than the narration (see the `scale` buffer above), and
+    // -shortest would trim that buffer straight back off — which silently
+    // ate the final scene's own 0.35s fade-out on every single video,
+    // freezing on a mid-content frame instead of ending gracefully. Without
+    // -shortest, the video plays out its full length (audio just goes
+    // silent slightly early, which is inaudible).
     await runFfmpeg([
       '-i', silentVideo,
       '-i', audioPath,
       '-c:v', 'copy',
       '-c:a', 'aac',
       '-b:a', '192k',
-      '-shortest',
       outputPath,
     ]);
 

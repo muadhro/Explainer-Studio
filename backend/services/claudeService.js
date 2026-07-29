@@ -78,7 +78,7 @@ ${layoutGuide}
 Rules:
 - Use at most ${maxScenes} scenes; merge minor topics together rather than exceeding that.
 - sceneType is "slide" for almost every scene. Use "photo" ONLY for an intro or outro scene where a real photograph helps; then fill imageKeywords (concrete photographable subject) and iconKeyword instead of slide, and put a headline in textOverlays[0].
-- slide.title: max 3 words, punchy. slide.subtitle: max 5 words.
+- slide.title: max 3 words, must directly name the concept being taught (e.g. "OSI Model", "DNS Lookup", "TCP Handshake") — never a metaphorical, poetic, or vague phrase (e.g. NOT "The Language Machines Speak"). slide.subtitle: max 5 words.
 - item.icon: 1-3 generic words that will match a tech icon library (e.g. "server", "laptop", "globe network", "email", "shield lock", "database"). item.label: max 20 chars. item.sublabel: optional detail, max 24 chars.
 - Every item label must be meaningful (a name, number, or term from the content — never "item 1").
 - narration should be conversational and roughly match the scene duration (about 2.5 words per second).

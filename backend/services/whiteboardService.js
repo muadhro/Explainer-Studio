@@ -397,9 +397,13 @@ function buildFrameSvg({ slide, plan, iconGeometry, width, height, t, duration, 
         parts.push(penMarker(tip, i % 2 === 0 ? theme.accent : theme.accent2));
       }
     } else {
-      // no icon resolved — draw a simple placeholder ink circle instead
+      // no icon resolved — draw a lettered placeholder circle instead,
+      // matching animatedService.js's fallback so it reads as intentional
+      // rather than a blank/broken icon
       const op = easeOutCubic(drawP);
-      parts.push(`<circle cx="${item.cx}" cy="${item.cy}" r="${s * 0.28}" fill="none" stroke="${theme.ink}" stroke-width="3" opacity="${op}"/>`);
+      const r = s * 0.28;
+      parts.push(`<circle cx="${item.cx}" cy="${item.cy}" r="${r}" fill="none" stroke="${theme.ink}" stroke-width="3" opacity="${op}"/>`);
+      parts.push(`<text x="${item.cx}" y="${item.cy + r * 0.35}" text-anchor="middle" font-family="${fontStack}" font-size="${r * 1.1}" font-weight="700" fill="${theme.ink}" opacity="${op}">${escapeXml((item.label || '?')[0].toUpperCase())}</text>`);
     }
 
     if (item.label) {
