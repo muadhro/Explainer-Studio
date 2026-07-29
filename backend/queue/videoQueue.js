@@ -3,7 +3,7 @@ const { getPlan } = require('../config/plans');
 const { generateScript } = require('../services/claudeService');
 const { generateVoiceover } = require('../services/elevenLabsService');
 const { fetchImageForScene, fetchIcon } = require('../services/imageService');
-const { composeVideo } = require('../services/composerService');
+const { composeVideo, extractThumbnail } = require('../services/composerService');
 const { getTheme, normalizeSlide } = require('../services/slideService');
 const { THEME_NAMES: ANIMATED_EXPLAINER_THEME_NAMES } = require('../services/animatedService');
 const fal = require('../services/falService');
@@ -135,11 +135,23 @@ async function processVideo(videoId) {
   const fileSize = fileService.getFileSizeMB(videoPath);
   fileService.deleteIfExists(audioPath); // audio is muxed into the video now
 
+  // a failed thumbnail grab shouldn't fail the whole video — same
+  // resilience pattern used for icon-rasterization failures elsewhere
+  let thumbnailPath = null;
+  try {
+    thumbnailPath = fileService.thumbnailPathFor(video.title, videoId);
+    await extractThumbnail(videoPath, thumbnailPath);
+  } catch (err) {
+    console.warn(`[queue] thumbnail extraction failed for ${videoId}:`, err.message);
+    thumbnailPath = null;
+  }
+
   await updateVideo(videoId, {
     status: 'complete',
     progress: 100,
     videoPath,
     audioPath: null,
+    thumbnailPath,
     fileSize,
     completedAt: new Date().toISOString(),
   });

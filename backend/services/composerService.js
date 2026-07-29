@@ -52,6 +52,23 @@ function probeDurationSeconds(mediaPath) {
   });
 }
 
+/** Grab a single still frame from a finished video as a small preview thumbnail. */
+async function extractThumbnail(videoPath, outputPath) {
+  const duration = await probeDurationSeconds(videoPath).catch(() => 0);
+  // 2s in is past every style's fade-in (all ≤0.6s), but clamp for very short clips
+  const atSeconds = duration > 3 ? 2 : 0;
+
+  await runFfmpeg([
+    '-ss', String(atSeconds),
+    '-i', videoPath,
+    '-frames:v', '1',
+    '-update', '1',
+    '-vf', 'scale=480:-1',
+    outputPath,
+  ]);
+  return outputPath;
+}
+
 function escapeXml(text) {
   return String(text)
     .replace(/&/g, '&amp;')
@@ -352,4 +369,4 @@ async function composeVideo({ scenes, sceneAssets, audioPath, quality, animation
   }
 }
 
-module.exports = { composeVideo, probeDurationSeconds, QUALITY_DIMENSIONS };
+module.exports = { composeVideo, probeDurationSeconds, extractThumbnail, QUALITY_DIMENSIONS };

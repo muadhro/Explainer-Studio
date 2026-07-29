@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Video } from '../types';
 import StatusBadge from './StatusBadge';
-import { downloadVideoUrl, playVideoUrl } from '../api';
+import { downloadVideoUrl, playVideoUrl, thumbnailUrl } from '../api';
 
 interface VideoCardProps {
   video: Video;
@@ -12,16 +12,30 @@ interface VideoCardProps {
 
 export default function VideoCard({ video, onDelete, onRetry, retrying }: VideoCardProps) {
   const [showPlayer, setShowPlayer] = useState(false);
+  const [thumbFailed, setThumbFailed] = useState(false);
   const created = new Date(video.createdAt).toLocaleString();
+  const showThumb = video.status === 'complete' && !thumbFailed;
 
   return (
     <>
       <tr>
         <td>
-          <div className="video-title">{video.title}</div>
-          <div className="video-meta">
-            {video.animationStyle} · {video.quality}
-            {video.fileSize ? ` · ${video.fileSize} MB` : ''}
+          <div className="video-title-row">
+            {showThumb && (
+              <img
+                src={thumbnailUrl(video.id)}
+                alt=""
+                className="video-thumb"
+                onError={() => setThumbFailed(true)}
+              />
+            )}
+            <div>
+              <div className="video-title">{video.title}</div>
+              <div className="video-meta">
+                {video.animationStyle} · {video.quality}
+                {video.fileSize ? ` · ${video.fileSize} MB` : ''}
+              </div>
+            </div>
           </div>
         </td>
         <td>

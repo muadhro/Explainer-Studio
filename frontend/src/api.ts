@@ -69,6 +69,10 @@ export function playVideoUrl(id: string): string {
   return `${VIDEOS_URL}/${id}/play`;
 }
 
+export function thumbnailUrl(id: string): string {
+  return `${VIDEOS_URL}/${id}/thumbnail`;
+}
+
 export async function listVoices(): Promise<Voice[]> {
   const response = await apiFetch('/api/voices');
   const data = await handleResponse<{ voices: Voice[] }>(response);

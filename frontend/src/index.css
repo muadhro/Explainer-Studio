@@ -548,6 +548,22 @@ button[type='submit']:disabled {
   border-bottom: none;
 }
 
+.video-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.video-thumb {
+  width: 72px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg-section);
+}
+
 .video-title {
   font-weight: 600;
   font-size: 15px;

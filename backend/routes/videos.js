@@ -185,6 +185,24 @@ router.get(
   }),
 );
 
+// GET /api/videos/:id/thumbnail — treated as private to the owner, same as
+// the video itself (unlike avatars, which are served as unauthenticated
+// static files — course topics aren't meant to be publicly browsable).
+router.get(
+  '/:id/thumbnail',
+  asyncHandler(async (req, res) => {
+    const video = await loadOwnedVideo(req, res);
+    if (!video) return;
+    if (!video.thumbnailPath || !fs.existsSync(video.thumbnailPath)) {
+      return res.status(404).json({ message: 'Thumbnail not available' });
+    }
+
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    fs.createReadStream(video.thumbnailPath).pipe(res);
+  }),
+);
+
 // POST /api/videos/:id/retry — re-run a failed job from scratch (same video row).
 router.post(
   '/:id/retry',

@@ -14,6 +14,7 @@ fs.mkdirSync(STORAGE_PATH, { recursive: true });
 fs.mkdirSync(path.join(STORAGE_PATH, 'audio'), { recursive: true });
 fs.mkdirSync(path.join(STORAGE_PATH, 'generated'), { recursive: true });
 fs.mkdirSync(path.join(STORAGE_PATH, 'avatars'), { recursive: true });
+fs.mkdirSync(path.join(STORAGE_PATH, 'thumbnails'), { recursive: true });
 
 const connectionString = process.env.SUPABASE_DB_URL;
 if (!connectionString) {
@@ -109,6 +110,9 @@ const ready = (async () => {
 
   // migration for databases created before Deep Dive content mode existed
   await pool.query(`ALTER TABLE videos ADD COLUMN IF NOT EXISTS "contentDepth" TEXT`);
+
+  // migration for databases created before video thumbnails existed
+  await pool.query(`ALTER TABLE videos ADD COLUMN IF NOT EXISTS "thumbnailPath" TEXT`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS password_resets (
