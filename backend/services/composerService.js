@@ -69,6 +69,72 @@ async function extractThumbnail(videoPath, outputPath) {
   return outputPath;
 }
 
+function assTimestamp(seconds) {
+  const s = Math.max(0, Number(seconds) || 0);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${h}:${String(m).padStart(2, '0')}:${sec.toFixed(2).padStart(5, '0')}`;
+}
+
+function escapeAssText(text) {
+  return String(text).replace(/\\/g, '\\\\').replace(/[{}]/g, '');
+}
+
+// ffmpeg's ass= filter argument is itself a mini option-string, so ':' has to
+// be escaped or it's parsed as a key=value separator (breaks Windows drive
+// letters like "C:\..." in particular).
+function escapeFilterPath(p) {
+  return String(p).replace(/\\/g, '/').replace(/:/g, '\\:');
+}
+
+/**
+ * Build a one-word-at-a-time ASS subtitle track from real TTS word timings —
+ * the bold, center-screen caption style short-form video uses for retention.
+ * Positioned as an opaque bar so it stays readable over any scene background.
+ */
+function buildCaptionAss({ words, width, height, outputPath }) {
+  const fontSize = Math.round(height * 0.062);
+  const marginV = Math.round(height * 0.1);
+  const header = `[Script Info]
+ScriptType: v4.00+
+PlayResX: ${width}
+PlayResY: ${height}
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Caption,Arial,${fontSize},&H00FFFFFF,&H000000FF,&H00000000,&H26000000,-1,0,0,0,100,100,0,0,3,0,0,2,60,60,${marginV},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+`;
+
+  const events = words
+    .filter((w) => w.text && Number.isFinite(w.start) && Number.isFinite(w.end) && w.end > w.start)
+    .map((w) => `Dialogue: 0,${assTimestamp(w.start)},${assTimestamp(w.end)},Caption,,0,0,0,,${escapeAssText(w.text.toUpperCase())}`)
+    .join('\n');
+
+  fs.writeFileSync(outputPath, header + events + '\n');
+  return outputPath;
+}
+
+/** Burn word-by-word captions into a rendered (silent) video via libass. */
+async function burnCaptions(inputVideo, captionWords, width, height, workDir, outputPath) {
+  const assPath = path.join(workDir, 'captions.ass');
+  buildCaptionAss({ words: captionWords, width, height, outputPath: assPath });
+
+  await runFfmpeg([
+    '-i', inputVideo,
+    '-vf', `ass=filename='${escapeFilterPath(assPath)}'`,
+    '-r', String(FPS),
+    '-c:v', 'libx264',
+    '-preset', 'fast',
+    outputPath,
+  ]);
+  return outputPath;
+}
+
 function escapeXml(text) {
   return String(text)
     .replace(/&/g, '&amp;')
@@ -263,7 +329,7 @@ async function renderSceneClip(scenePng, duration, width, height, outputPath) {
  * Full local render: scenes -> stills -> clips -> concat -> mux narration audio.
  * Scene durations are rescaled so total video length matches the narration length.
  */
-async function composeVideo({ scenes, sceneAssets, audioPath, quality, animationStyle, animatedThemeName, outputPath, onProgress }) {
+async function composeVideo({ scenes, sceneAssets, audioPath, quality, animationStyle, animatedThemeName, captionWords, outputPath, onProgress }) {
   const { width, height } = QUALITY_DIMENSIONS[quality] || QUALITY_DIMENSIONS['720p'];
   const theme = STYLE_THEMES[animationStyle] || STYLE_THEMES['Motion Graphics'];
   // resolved once per video (not per scene) so every scene in a video stays
@@ -353,6 +419,13 @@ async function composeVideo({ scenes, sceneAssets, audioPath, quality, animation
     const silentVideo = path.join(workDir, 'combined.mp4');
     await runFfmpeg(['-f', 'concat', '-safe', '0', '-i', concatList, '-c', 'copy', silentVideo]);
 
+    let videoForMux = silentVideo;
+    if (captionWords && captionWords.length) {
+      const captionedVideo = path.join(workDir, 'captioned.mp4');
+      await burnCaptions(silentVideo, captionWords, width, height, workDir, captionedVideo);
+      videoForMux = captionedVideo;
+    }
+
     // Deliberately NOT using -shortest here: composed video is intentionally
     // ~0.5s longer than the narration (see the `scale` buffer above), and
     // -shortest would trim that buffer straight back off — which silently
@@ -361,7 +434,7 @@ async function composeVideo({ scenes, sceneAssets, audioPath, quality, animation
     // -shortest, the video plays out its full length (audio just goes
     // silent slightly early, which is inaudible).
     await runFfmpeg([
-      '-i', silentVideo,
+      '-i', videoForMux,
       '-i', audioPath,
       '-c:v', 'copy',
       '-c:a', 'aac',

@@ -1,7 +1,7 @@
 const { updateVideo, getVideoById, getUserById, sumNarrationCharsThisMonthForUser } = require('../database/db');
 const { getPlan } = require('../config/plans');
 const { generateScript } = require('../services/claudeService');
-const { generateVoiceover } = require('../services/elevenLabsService');
+const { generateVoiceoverWithTimestamps } = require('../services/elevenLabsService');
 const { fetchImageForScene, fetchIcon } = require('../services/imageService');
 const { composeVideo, extractThumbnail } = require('../services/composerService');
 const { getTheme, normalizeSlide } = require('../services/slideService');
@@ -120,7 +120,7 @@ async function processVideo(videoId) {
   }
 
   const audioPath = fileService.audioPathFor(video.title, video.id);
-  await generateVoiceover(fullNarration, audioPath, video.voiceId || undefined);
+  const { words: captionWords } = await generateVoiceoverWithTimestamps(fullNarration, audioPath, video.voiceId || undefined);
   await updateVideo(videoId, { audioPath, progress: 30, narrationChars: fullNarration.length });
 
   const renderMode = (process.env.RENDER_MODE || 'local').toLowerCase();
@@ -129,7 +129,7 @@ async function processVideo(videoId) {
   if (renderMode === 'fal') {
     await renderWithFal(videoId, video, script, audioPath, videoPath);
   } else {
-    await renderLocally(videoId, video, script, audioPath, videoPath);
+    await renderLocally(videoId, video, script, audioPath, videoPath, captionWords);
   }
 
   const fileSize = fileService.getFileSizeMB(videoPath);
@@ -162,7 +162,7 @@ async function processVideo(videoId) {
  * (Pexels -> Openverse -> Wikimedia fallback chain) plus tech icons from
  * Iconify, then composite everything locally with sharp + ffmpeg.
  */
-async function renderLocally(videoId, video, script, audioPath, videoPath) {
+async function renderLocally(videoId, video, script, audioPath, videoPath, captionWords) {
   const assetDir = fs.mkdtempSync(path.join(os.tmpdir(), 'explainer-assets-'));
 
   try {
@@ -234,6 +234,7 @@ async function renderLocally(videoId, video, script, audioPath, videoPath) {
       quality: video.quality,
       animationStyle: video.animationStyle,
       animatedThemeName,
+      captionWords,
       outputPath: videoPath,
       onProgress: (pct) => updateProgress(videoId, 55 + Math.round(pct * 0.43)),
     });
