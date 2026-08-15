@@ -8,6 +8,7 @@ import {
   manageAdminUser,
 } from '../api';
 import { useAuth } from '../AuthContext';
+import ConfirmDialog from '../components/ConfirmDialog';
 import type { AdminUser, AdminStats, AdminAnalytics } from '../types';
 
 export default function Admin() {
@@ -24,6 +25,7 @@ export default function Admin() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDeleteUser, setPendingDeleteUser] = useState<AdminUser | null>(null);
   const [manageTarget, setManageTarget] = useState<AdminUser | null>(null);
   const [manageRole, setManageRole] = useState<'user' | 'admin'>('user');
   const [manageNewPassword, setManageNewPassword] = useState('');
@@ -76,13 +78,12 @@ export default function Admin() {
     }
   }
 
-  async function handleDeleteUser(id: string, name: string, email: string) {
-    if (!window.confirm(`Remove ${name} (${email})? This permanently deletes their account and all their videos. This cannot be undone.`)) {
-      return;
-    }
-    setDeletingId(id);
+  async function confirmDeleteUser() {
+    if (!pendingDeleteUser) return;
+    setDeletingId(pendingDeleteUser.id);
     try {
-      await deleteAdminUser(id);
+      await deleteAdminUser(pendingDeleteUser.id);
+      setPendingDeleteUser(null);
       await loadAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete user');
@@ -371,7 +372,7 @@ export default function Admin() {
                           <button
                             type="button"
                             className="danger-link"
-                            onClick={() => handleDeleteUser(u.id, u.fullName, u.email)}
+                            onClick={() => setPendingDeleteUser(u)}
                             disabled={deletingId === u.id}
                           >
                             {deletingId === u.id ? 'Removing…' : 'Remove'}
@@ -408,6 +409,21 @@ export default function Admin() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={pendingDeleteUser !== null}
+        title="Remove this user?"
+        message={
+          pendingDeleteUser
+            ? `${pendingDeleteUser.fullName} (${pendingDeleteUser.email}) will be permanently removed, along with all of their videos. This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Remove"
+        danger
+        busy={deletingId === pendingDeleteUser?.id}
+        onConfirm={confirmDeleteUser}
+        onCancel={() => setPendingDeleteUser(null)}
+      />
     </div>
   );
 }

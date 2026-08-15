@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { listVideos, deleteVideo, retryVideo, fetchBilling } from '../api';
 import type { Video, VideoStatus, BillingInfo } from '../types';
 import VideoCard from '../components/VideoCard';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 type SortKey = 'date' | 'status';
 
@@ -17,6 +18,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Video | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchVideos = useCallback(async () => {
     try {
@@ -41,13 +44,22 @@ export default function Dashboard() {
     fetchBilling().then(setBilling).catch(() => {});
   }, [videos.length]);
 
-  async function handleDelete(id: string) {
-    if (!window.confirm('Delete this video? This cannot be undone.')) return;
+  function handleDelete(id: string) {
+    const video = videos.find((v) => v.id === id);
+    if (video) setPendingDelete(video);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
     try {
-      await deleteVideo(id);
-      setVideos((prev) => prev.filter((v) => v.id !== id));
+      await deleteVideo(pendingDelete.id);
+      setVideos((prev) => prev.filter((v) => v.id !== pendingDelete.id));
+      setPendingDelete(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete video');
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -179,6 +191,17 @@ export default function Dashboard() {
           </tbody>
         </table>
       )}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete this video?"
+        message={pendingDelete ? `"${pendingDelete.title}" will be permanently deleted. This cannot be undone.` : ''}
+        confirmLabel="Delete"
+        danger
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

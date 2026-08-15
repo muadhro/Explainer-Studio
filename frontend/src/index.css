@@ -1529,6 +1529,98 @@ button[type='submit']:disabled {
   cursor: not-allowed;
 }
 
+/* --- Confirm dialog: centered modal, replaces native window.confirm() --- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: modal-overlay-in 0.18s ease-out;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+  padding: 28px;
+  animation: modal-card-in 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+
+.modal-card h2 {
+  margin: 0 0 8px;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.modal-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-secondary);
+}
+
+.modal-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.modal-card__actions button {
+  min-width: 96px;
+}
+
+.modal-card__actions button[type='button']:first-child {
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 980px;
+  padding: 9px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.modal-card__actions button[type='button']:first-child:hover:not(:disabled) {
+  border-color: var(--ink-secondary);
+}
+
+.modal-card__actions button[type='button']:first-child:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@keyframes modal-overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes modal-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay,
+  .modal-card {
+    animation: none;
+  }
+}
+
 /* --- Home page --- */
 .hero-actions {
   display: flex;
