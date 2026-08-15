@@ -212,14 +212,17 @@ function buildScenePlan(slide, width, height, seed, dotColors = ['#94a3b8']) {
     // duration. cy/ring/icon sizes are balanced so that at any rotation
     // angle: (a) an orbit item's label+sublabel clears the burned-in caption
     // band near the frame bottom, (b) an orbit item doesn't visually overlap
-    // the hero icon, and (c) an orbit item doesn't collide with the
-    // title/subtitle near the top — there isn't enough vertical room to
-    // satisfy all three at the original (larger) icon sizes.
+    // the hero icon *or the hero's own label*, and (c) an orbit item doesn't
+    // collide with the title/subtitle near the top — there isn't enough
+    // vertical room to satisfy all three at the original (larger) icon sizes.
+    // The hero's sublabel is dropped when orbit items exist: it added enough
+    // extra vertical footprint below the hero to make the budget infeasible,
+    // and a busy hero+multiple-orbit-label scene reads better decluttered.
     const cx = width / 2;
     const cy = height * 0.5;
-    const ring = height * 0.2;
-    const heroSize = height * 0.14;
-    const orbitSize = height * 0.1;
+    const ring = height * 0.205;
+    const heroSize = height * 0.12;
+    const orbitSize = height * 0.09;
     items.forEach((item, i) => {
       if (i === 0) {
         plan.items.push({
@@ -229,6 +232,7 @@ function buildScenePlan(slide, width, height, seed, dotColors = ['#94a3b8']) {
           iconSize: heroSize,
           appear: appearBase,
           hero: true,
+          sublabel: items.length > 1 ? '' : item.sublabel,
           fromX: 0,
           fromY: 0,
         });
