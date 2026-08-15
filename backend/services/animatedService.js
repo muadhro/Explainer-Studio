@@ -209,18 +209,24 @@ function buildScenePlan(slide, width, height, seed, dotColors = ['#94a3b8']) {
     // grid -> hero + orbit: first item center, the rest orbit on a dotted ring.
     // Orbit items rotate continuously (see `resolved` below), so every orbit
     // item cyclically sweeps through the bottom of the ring over the scene's
-    // duration — cy/ring are kept tight enough that even a bottom-of-ring
-    // item's label clears the burned-in caption band near the frame bottom.
+    // duration. cy/ring/icon sizes are balanced so that at any rotation
+    // angle: (a) an orbit item's label+sublabel clears the burned-in caption
+    // band near the frame bottom, (b) an orbit item doesn't visually overlap
+    // the hero icon, and (c) an orbit item doesn't collide with the
+    // title/subtitle near the top — there isn't enough vertical room to
+    // satisfy all three at the original (larger) icon sizes.
     const cx = width / 2;
-    const cy = height * 0.45;
-    const ring = height * 0.25;
+    const cy = height * 0.5;
+    const ring = height * 0.2;
+    const heroSize = height * 0.14;
+    const orbitSize = height * 0.1;
     items.forEach((item, i) => {
       if (i === 0) {
         plan.items.push({
           ...item,
           cx,
           cy,
-          iconSize: height * 0.2,
+          iconSize: heroSize,
           appear: appearBase,
           hero: true,
           fromX: 0,
@@ -230,7 +236,7 @@ function buildScenePlan(slide, width, height, seed, dotColors = ['#94a3b8']) {
         plan.items.push({
           ...item,
           orbit: { cx, cy, r: ring, baseAngle: -Math.PI / 2 + ((i - 1) * 2 * Math.PI) / Math.max(1, items.length - 1) },
-          iconSize: height * 0.12,
+          iconSize: orbitSize,
           appear: appearBase + 0.5 + (i - 1) * stagger,
           fromX: 0,
           fromY: 0,
