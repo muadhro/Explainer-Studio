@@ -212,8 +212,8 @@ function buildScenePlan(slide, width, height, seed, dotColors = ['#94a3b8']) {
     // duration — cy/ring are kept tight enough that even a bottom-of-ring
     // item's label clears the burned-in caption band near the frame bottom.
     const cx = width / 2;
-    const cy = height * 0.5;
-    const ring = height * 0.19;
+    const cy = height * 0.45;
+    const ring = height * 0.25;
     items.forEach((item, i) => {
       if (i === 0) {
         plan.items.push({
