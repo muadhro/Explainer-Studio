@@ -56,6 +56,20 @@ function escapeXml(text) {
     .replace(/"/g, '&quot;');
 }
 
+// A blind .slice(0, N) cuts mid-word with no indication anything was lost —
+// this instead backs up to the last word boundary and adds an ellipsis, so
+// titles that overrun the cap still read as a complete-looking phrase rather
+// than a garbled fragment (e.g. a Claude-authored title that ignores the
+// "max 3 words" prompt rule, or a photo-scene headline with no length limit).
+function truncateTitle(title, maxChars) {
+  const str = String(title || '').trim();
+  if (str.length <= maxChars) return str;
+  const cut = str.slice(0, maxChars);
+  const lastSpace = cut.lastIndexOf(' ');
+  const clean = lastSpace > maxChars * 0.5 ? cut.slice(0, lastSpace) : cut;
+  return clean.trim() + '…';
+}
+
 function wrapText(text, maxChars) {
   const words = String(text).split(/\s+/);
   const lines = [];
@@ -94,7 +108,7 @@ function normalizeQuizSlide(slide) {
   }
 
   return {
-    title: String(slide.title || 'Quick Recap').slice(0, 30),
+    title: truncateTitle(slide.title || 'Quick Recap', 30),
     subtitle: String(slide.subtitle || '').slice(0, 40),
     layout: 'quiz',
     sections: [],
@@ -123,7 +137,7 @@ function normalizeSlide(slide) {
   if (!sections.length || !sections.some((s) => s.items.length)) return null;
 
   return {
-    title: String(slide.title || '').slice(0, 30),
+    title: truncateTitle(slide.title, 30),
     subtitle: String(slide.subtitle || '').slice(0, 40),
     layout,
     sections,

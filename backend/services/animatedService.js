@@ -206,10 +206,14 @@ function buildScenePlan(slide, width, height, seed, dotColors = ['#94a3b8']) {
       revealAppear: lastChoiceAppear + choiceStagger + 0.4,
     };
   } else {
-    // grid -> hero + orbit: first item center, the rest orbit on a dotted ring
+    // grid -> hero + orbit: first item center, the rest orbit on a dotted ring.
+    // Orbit items rotate continuously (see `resolved` below), so every orbit
+    // item cyclically sweeps through the bottom of the ring over the scene's
+    // duration — cy/ring are kept tight enough that even a bottom-of-ring
+    // item's label clears the burned-in caption band near the frame bottom.
     const cx = width / 2;
-    const cy = height * 0.59;
-    const ring = height * 0.28;
+    const cy = height * 0.5;
+    const ring = height * 0.19;
     items.forEach((item, i) => {
       if (i === 0) {
         plan.items.push({

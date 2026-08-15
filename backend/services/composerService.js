@@ -94,8 +94,8 @@ function escapeFilterPath(p) {
  * Positioned as an opaque bar so it stays readable over any scene background.
  */
 function buildCaptionAss({ words, width, height, outputPath }) {
-  const fontSize = Math.round(height * 0.062);
-  const marginV = Math.round(height * 0.1);
+  const fontSize = Math.round(height * 0.05);
+  const marginV = Math.round(height * 0.05);
   const header = `[Script Info]
 ScriptType: v4.00+
 PlayResX: ${width}
